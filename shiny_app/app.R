@@ -138,13 +138,26 @@ ui <- fluidPage(
                         min = 0,
                         max = 13999, 
                         value = c(100,1000)),
+            selectInput(inputId = "var_of_interest",
+                        label = "Summary by?",
+                        choices = c("Room Type" = "room_type",
+                                    "Neighbourhood Group" = "neighbourhood_group"),
+                        selected = "Room Type",
+                        multiple = FALSE),
             checkboxInput(inputId = "showData",
                           label = "Show data table",
                           value = TRUE)
         ),
         mainPanel(
-            tmapOutput("mapPlot"),
-            DT::dataTableOutput(outputId = "aTable")
+            tabsetPanel(
+                tabPanel("Map",
+                    tmapOutput("mapPlot"),
+                    DT::dataTableOutput(outputId = "aTable")
+                ),
+                tabPanel("Summary",
+                    plotly::plotlyOutput("bar_plot")
+                )
+            )
         )
     )
 )
@@ -163,6 +176,23 @@ server <- function(input, output, session){
                        border.col = "black",
                        border.lwd = 0.5)
     })  
+    output$bar_plot <- plotly::renderPlotly({
+        data <- listings_2019
+        if(input$var_of_interest == "room_type"){
+            plot_bar <- ggplot(data, 
+                               aes(room_type, fill=room_type))+
+                                geom_bar()+
+                                theme_minimal()
+        } else {
+            plot_bar <- ggplot(data, 
+                               aes(neighbourhood_group, fill=neighbourhood_group))+
+                                geom_bar()+
+                                theme_minimal()
+        } 
+        return(plot_bar)
+    })
+    
+    
     output$aTable <- DT::renderDataTable({
         if(input$showData){
             DT::datatable(data = dataset() %>%
@@ -170,7 +200,8 @@ server <- function(input, output, session){
                           options= list(pageLength = 10),
                           rownames = FALSE)
         }
-    })    
+    })   
+    
 }
 
 shinyApp (ui=ui, server=server)
