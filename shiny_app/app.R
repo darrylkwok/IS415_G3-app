@@ -1,5 +1,6 @@
 library(shiny)
 library(shiny.router)
+library(dplyr)
 
 libs <- c("sf","tmap","tidyverse","maptools","spatstat","raster",
           "ggplot2","rgeos","rgdal","sp", "stringr")
@@ -45,7 +46,7 @@ geospatial_processing <- function(input_sf, expected_crs){
 
 sg_sf <- geospatial_processing(sg_sf,3414)
 mpsz_sf <- geospatial_processing(mpsz_sf,3414)
-shan_sf <- geospatial_processing(shan_sf,4326)
+
 london_sf <- geospatial_processing(london_sf,27700)
 
 ###########################################################################################
@@ -58,13 +59,6 @@ london_sf <- geospatial_processing(london_sf,27700)
 # so to access, read_csv(input$filename$datapath)
 ict <- read_csv ("data/aspatial/Shan-ICT.csv")
 crime <- read_csv ("data/aspatial/crime-types.csv")
-
-# needs to left_join with geospatial data... which is user input? 'join on...'
-# how to add that functionality though :-(
-# or we can necessitate that they joined column must be of same name then go through both to find
-
-shan_ict <- left_join(shan_sf, ict, 
-                     by=c("TS_PCODE"="Township Pcode"))
 
 ###########################################################################################
 
@@ -120,16 +114,40 @@ ict_derived <- ict %>%
            `LLPHONE`=`Land line phone`, `MPHONE`=`Mobile phone`,
            `COMPUTER`=`Computer`, `INTERNET`=`Internet at home`) 
 
+
+# needs to left_join with geospatial data... which is user input? 'join on...'
+# how to add that functionality though :-(
+# or we can necessitate that they joined column must be of same name then go through both to find
+
+shan_sf <- left_join(shan_sf, ict_derived, 
+                      by=c("TS_PCODE"="TS_PCODE"))
+
 ###########################################################################################
 
 # EDA SECTION
 
 ###########################################################################################
 
-# Basic Clustering: Hierarchical Clustering
 
+# CLUSTERING SECTION
+
+## SELECT CLUSTER VARIABLES
+
+
+cluster_vars <- shan_sf %>%
+    st_set_geometry(NULL) %>% 
+    dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR")
+
+row.names(cluster_vars) <- cluster_vars$"TS.x"
+
+shan_ict <- dplyr::select(cluster_vars, c(2:6))
+
+## Convert dataframe into a matrix
+
+shan_ict_mat <- data.matrix(shan_ict)
 
 ## Define the pages
+### To create a new page, you have to define a new variable and set up the route in the router and hardcode it in the ui function of the shinyapp
 
 homepage <- div(
     titlePanel("Homepage"),
@@ -178,7 +196,45 @@ eda_page <- div(
 
 basic_clustering_page <- div(
     titlePanel("Basic Clustering"),
-    p("This is the Basic Clustering page")
+    sidebarLayout(
+        sidebarPanel(
+            selectInput(inputId = "proximity_method",
+                        label = "Which proximity method?",
+                        choices = c("Euclidean" = "euclidean",
+                                    "Maximum" = "maximum",
+                                    "Manhattan" = "manhattan",
+                                    "Canberra" = "canberra",
+                                    "Binary" = "binary",
+                                    "Minkowski" = "minkowski"),
+                        selected = "Euclidean",
+                        multiple = FALSE),
+            selectInput(inputId = "clust_method",
+                        label = "Which clustering method?",
+                        choices = c("Ward D" = "ward.D",
+                                    "Ward D2" = "ward.D2",
+                                    "Single" = "single",
+                                    "Complete" = "complete",
+                                    "Average(UPGMA)" = "average",
+                                    "Mcquitty(WPGMA)" = "mcquitty",
+                                    "Median(WPGMC)" = "median",
+                                    "Centroid(UPGMC)" = "centroid"),
+                        selected = "Ward D",
+                        multiple = FALSE),
+            sliderInput(inputId = "clust_num", 
+                        label = "Number of Clusters", 
+                        min = 1,
+                        max = 20, 
+                        value = 3),
+        ),
+        mainPanel(
+            tabsetPanel(
+                tabPanel("Cluster Dendrogram",
+                         tmapOutput("hier_clust"),
+                )
+            )
+        )
+    )
+
 )
 
 ## Create the Router
@@ -200,16 +256,16 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session){
-    ## the server function passes the input, output and the session data to the router and the call to the shinyapp brings these two components together
     router$server(input, output, session)
     
-    dataset = reactive({
+    ## EDA 
+    eda_dataset = reactive({
         listings_2019 %>%
             filter(room_type == input$room_type) %>%
             filter(price > input$price)
     })
     output$mapPlot <- renderTmap({
-        tm_shape(shp = dataset(),
+        tm_shape(shp = eda_dataset(),
                  bbox = st_bbox(listings_2019))+
             tm_bubbles(col = "room_type",
                        size = "price",
@@ -235,12 +291,29 @@ server <- function(input, output, session){
     
     output$aTable <- DT::renderDataTable({
         if(input$showData){
-            DT::datatable(data = dataset() %>%
+            DT::datatable(data = eda_dataset() %>%
                               select(1:4),
                           options= list(pageLength = 10),
                           rownames = FALSE)
         }
     })   
+    
+    ## Basic Clustering
+    basic_dataset <- shan_ict
+    sec_dataset <- shan_sf
+    
+    output$hier_clust <- renderTmap({
+        proxmat <- dist(basic_dataset, method = input$proximity_method)
+        
+        hclust_ward <- hclust(proxmat, method = input$clust_method)
+        
+        groups <- as.factor(cutree(hclust_ward, k=input$clust_num))
+        
+        shan_sf_cluster <- cbind(sec_dataset, as.matrix(groups)) %>%
+            rename(`CLUSTER`=`as.matrix.groups.`)
+        
+        qtm(shan_sf_cluster, "CLUSTER")
+    })
     
 }
 
