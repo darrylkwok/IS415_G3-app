@@ -1,4 +1,6 @@
 library(shiny)
+library(shiny.router)
+
 libs <- c("sf","tmap","tidyverse","maptools","spatstat","raster",
           "ggplot2","rgeos","rgdal","sp", "stringr")
 lapply(libs, library, character.only = TRUE)
@@ -122,7 +124,19 @@ ict_derived <- ict %>%
 
 # EDA SECTION
 
-ui <- fluidPage(
+###########################################################################################
+
+# Basic Clustering: Hierarchical Clustering
+
+
+## Define the pages
+
+homepage <- div(
+    titlePanel("Homepage"),
+    p("This is the Homepage")
+)
+
+eda_page <- div(
     titlePanel("EDA"),
     sidebarLayout(
         sidebarPanel(
@@ -151,18 +165,44 @@ ui <- fluidPage(
         mainPanel(
             tabsetPanel(
                 tabPanel("Map",
-                    tmapOutput("mapPlot"),
-                    DT::dataTableOutput(outputId = "aTable")
+                         tmapOutput("mapPlot"),
+                         DT::dataTableOutput(outputId = "aTable")
                 ),
                 tabPanel("Summary",
-                    plotly::plotlyOutput("bar_plot")
+                         plotly::plotlyOutput("bar_plot")
                 )
             )
         )
     )
 )
 
+basic_clustering_page <- div(
+    titlePanel("Basic Clustering"),
+    p("This is the Basic Clustering page")
+)
+
+## Create the Router
+
+router <- make_router(
+    route("/", homepage),
+    route("eda", eda_page),
+    route("basic_clustering", basic_clustering_page)
+)
+
+
+ui <- fluidPage(
+    tags$ul(
+        tags$li(a(href = route_link("/"), "Homepage")),
+        tags$li(a(href = route_link("eda"), "Explanatory Data Analysis")),
+        tags$li(a(href = route_link("basic_clustering"), "Basic Clustering"))
+    ),
+    router$ui
+)
+
 server <- function(input, output, session){
+    ## the server function passes the input, output and the session data to the router and the call to the shinyapp brings these two components together
+    router$server(input, output, session)
+    
     dataset = reactive({
         listings_2019 %>%
             filter(room_type == input$room_type) %>%
