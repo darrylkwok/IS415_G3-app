@@ -279,6 +279,7 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session){
+    ## DO NOT REMOVE THIS
     router$server(input, output, session)
     
     ## EDA 
