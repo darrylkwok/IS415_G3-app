@@ -1,6 +1,8 @@
 library(shiny)
 library(shiny.router)
 library(dplyr)
+library(cluster)
+library(factoextra)
 
 libs <- c("sf","tmap","tidyverse","maptools","spatstat","raster",
           "ggplot2","rgeos","rgdal","sp", "stringr")
@@ -198,38 +200,59 @@ basic_clustering_page <- div(
     titlePanel("Basic Clustering"),
     sidebarLayout(
         sidebarPanel(
-            selectInput(inputId = "proximity_method",
-                        label = "Which proximity method?",
-                        choices = c("Euclidean" = "euclidean",
-                                    "Maximum" = "maximum",
-                                    "Manhattan" = "manhattan",
-                                    "Canberra" = "canberra",
-                                    "Binary" = "binary",
-                                    "Minkowski" = "minkowski"),
-                        selected = "Euclidean",
-                        multiple = FALSE),
-            selectInput(inputId = "clust_method",
-                        label = "Which clustering method?",
-                        choices = c("Ward D" = "ward.D",
-                                    "Ward D2" = "ward.D2",
-                                    "Single" = "single",
-                                    "Complete" = "complete",
-                                    "Average(UPGMA)" = "average",
-                                    "Mcquitty(WPGMA)" = "mcquitty",
-                                    "Median(WPGMC)" = "median",
-                                    "Centroid(UPGMC)" = "centroid"),
-                        selected = "Ward D",
-                        multiple = FALSE),
-            sliderInput(inputId = "clust_num", 
-                        label = "Number of Clusters", 
-                        min = 1,
-                        max = 20, 
-                        value = 3),
+            conditionalPanel(
+                condition = "input.tabselected==1",
+                sliderInput(inputId = "max_clust", 
+                            label = "Max number of Clusters", 
+                            min = 1,
+                            max = 20, 
+                            value = 5)
+            ),
+            conditionalPanel(
+                condition = "input.tabselected==2",
+                selectInput(inputId = "clust_method",
+                            label = "Which clustering method?",
+                            choices = c("Ward D" = "ward.D",
+                                        "Ward D2" = "ward.D2",
+                                        "Single" = "single",
+                                        "Complete" = "complete",
+                                        "Average(UPGMA)" = "average",
+                                        "Mcquitty(WPGMA)" = "mcquitty",
+                                        "Median(WPGMC)" = "median",
+                                        "Centroid(UPGMC)" = "centroid"),
+                            selected = "Ward D",
+                            multiple = FALSE),
+                selectInput(inputId = "proximity_method",
+                            label = "Which proximity method?",
+                            choices = c("Euclidean" = "euclidean",
+                                        "Maximum" = "maximum",
+                                        "Manhattan" = "manhattan",
+                                        "Canberra" = "canberra",
+                                        "Binary" = "binary",
+                                        "Minkowski" = "minkowski"),
+                            selected = "Euclidean",
+                            multiple = FALSE),
+                sliderInput(inputId = "clust_num", 
+                            label = "Number of Clusters", 
+                            min = 1,
+                            max = 20, 
+                            value = 3)
+            )
         ),
         mainPanel(
-            tabsetPanel(
-                tabPanel("Cluster Dendrogram",
-                         tmapOutput("hier_clust"),
+            tabsetPanel( 
+                id = "tabselected",
+                selected = 1,
+                tabPanel(
+                    "Parameter Tuning",
+                    plotOutput("param_tune"),
+                    value = 1
+                ),
+                tabPanel(
+                    "Dendrogram and Cluster Map",
+                    plotOutput("hier_dend"),
+                    tmapOutput("hier_clust"),
+                    value = 2
                 )
             )
         )
@@ -301,6 +324,25 @@ server <- function(input, output, session){
     ## Basic Clustering
     basic_dataset <- shan_ict
     sec_dataset <- shan_sf
+    
+    output$param_tune <- renderPlot({
+        set.seed(12345)
+        gap_stat <- clusGap(shan_ict, 
+                            FUN = hcut, 
+                            nstart = 25, 
+                            K.max = input$max_clust,
+                            B = 50)
+        fviz_gap_stat(gap_stat)
+    })
+    
+    output$hier_dend <- renderPlot({
+        proxmat <- dist(basic_dataset, method = input$proximity_method)
+        
+        hclust_ward <- hclust(proxmat, method = input$clust_method)
+        
+        plot(hclust_ward, cex=0.6)
+        
+    })
     
     output$hier_clust <- renderTmap({
         proxmat <- dist(basic_dataset, method = input$proximity_method)
