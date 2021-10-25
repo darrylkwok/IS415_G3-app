@@ -237,6 +237,14 @@ basic_clustering_page <- div(
                             min = 1,
                             max = 20, 
                             value = 3)
+            ),
+            conditionalPanel(
+                condition = "input.tabselected==3",
+                sliderInput(inputId = "k_means_clust_num", 
+                            label = "Number of Clusters", 
+                            min = 1,
+                            max = 20, 
+                            value = 3)
             )
         ),
         mainPanel(
@@ -253,6 +261,11 @@ basic_clustering_page <- div(
                     plotOutput("hier_dend"),
                     tmapOutput("hier_clust"),
                     value = 2
+                ),
+                tabPanel(
+                    "K-Means Clustering",
+                    tmapOutput("kmeans"),
+                    value = 3
                 )
             )
         )
@@ -334,6 +347,17 @@ server <- function(input, output, session){
                             K.max = input$max_clust,
                             B = 50)
         fviz_gap_stat(gap_stat)
+    })
+    
+    output$kmeans <- renderTmap({
+        set.seed(123)
+        kmeans <- kmeans(basic_dataset, centers = input$k_means_clust_num, nstart=25)
+        
+        kmeans_basic_df <- data.frame(CLUSTER = kmeans$cluster, sec_dataset) %>%
+            st_as_sf
+        
+        qtm(kmeans_basic_df, 'CLUSTER')
+
     })
     
     output$hier_dend <- renderPlot({
