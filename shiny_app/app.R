@@ -5,7 +5,7 @@ library(cluster)
 library(factoextra)
 
 libs <- c("sf","tmap","tidyverse","maptools","spatstat","raster",
-          "ggplot2","rgeos","rgdal","sp", "stringr","spdep")
+          "ggplot2","rgeos","rgdal","sp", "stringr", "ClustGeo","spdep")
 lapply(libs, library, character.only = TRUE)
 
 ###########################################################################################
@@ -61,6 +61,15 @@ london_sf <- geospatial_processing(london_sf,27700)
 # so to access, read_csv(input$filename$datapath)
 ict <- read_csv ("data/aspatial/Shan-ICT.csv")
 crime <- read_csv ("data/aspatial/crime-types.csv")
+
+# for ClustGeo
+# from https://cran.r-project.org/web/packages/ClustGeo/vignettes/intro_ClustGeo.html
+library(ClustGeo)
+data(estuary)
+dat <- estuary$dat
+D.geo <- estuary$D.geo
+map <- estuary$map
+sel <- map$NOM_COMM%in% c("BORDEAUX", "ARCACHON", "ROYAN") # label of 3 municipalities
 
 ###########################################################################################
 
@@ -149,7 +158,8 @@ shan_ict <- dplyr::select(cluster_vars, c(2:6))
 shan_ict_mat <- data.matrix(shan_ict)
 
 ## Define the pages
-### To create a new page, you have to define a new variable and set up the route in the router and hardcode it in the ui function of the shinyapp
+### To create a new page, you have to define a new variable and set up the route in the router 
+### and hardcode it in the ui function of the shinyapp
 
 homepage <- div(
     titlePanel("Homepage"),
@@ -270,7 +280,50 @@ basic_clustering_page <- div(
             )
         )
     )
+)
 
+clustgeo_page <- div(
+    titlePanel("ClustGeo Method"),
+    sidebarLayout(
+        sidebarPanel(
+            conditionalPanel(
+                condition = "input.tabselected==1",
+                tags$strong("ClustGeo spatially constrained clustering method"),
+                # selectInput("clustgeo_var",
+                #             label = "Choose your clustering variables:",
+                #             choices = sel,
+                #             selected = c("Bordeaux" = "BORDEAUX"),
+                #             multiple = TRUE),
+                sliderInput("clustgeo_no_cluster",
+                            label = "No. of clusters",
+                            min = 3,
+                            max = 10,
+                            value = 5,
+                            step = 1),
+                sliderInput("clustgeo_alpha",
+                            label = "alpha value",
+                            min = 0.1,
+                            max = 1.0,
+                            value = 0.2,
+                            step = 0.1),
+                checkboxInput("clustgeo_sugg_alpha", "Show suggested alpha value for known no. of clusters"),
+                conditionalPanel(condition = "input.clustgeo_sugg_alpha",
+                                 plotOutput("clustgeo_sugg_alpha", height = 300),
+                                 h6("Choose the intersection of D0 & D1 as the alpha value"))
+            )
+        ),
+        mainPanel(
+            tabsetPanel( 
+                id = "tabselected",
+                selected = 1,
+                tabPanel(
+                    "ClustGeo Method",
+                    plotOutput("clustgeo_cluster_map"),
+                     value = 1
+                ),
+            )
+        )
+    )
 )
 
 spatially_constrained_clustering_page <- div(
@@ -315,6 +368,7 @@ router <- make_router(
     route("/", homepage),
     route("eda", eda_page),
     route("basic_clustering", basic_clustering_page),
+    route("clustgeo", clustgeo_page),
     route("spatially_constrained_clustering", spatially_constrained_clustering_page)
 )
 
@@ -324,6 +378,7 @@ ui <- fluidPage(
         tags$li(a(href = route_link("/"), "Homepage")),
         tags$li(a(href = route_link("eda"), "Explanatory Data Analysis")),
         tags$li(a(href = route_link("basic_clustering"), "Basic Clustering")),
+        tags$li(a(href = route_link("clustgeo"), "ClustGeo")),
         tags$li(a(href = route_link("spatially_constrained_clustering"), "Spatially Constrained Clustering"))
     ),
     router$ui
@@ -420,6 +475,39 @@ server <- function(input, output, session){
         qtm(shan_sf_cluster, "CLUSTER")
     })
     
+    # ClustGeo Clustering
+    # Currently is hardcoded to the estuary dataset to understand clustgeo
+    # alterantive reference: https://github.com/erikaaldisa/IS415_T14_Project/blob/master/app/app.R
+    # https://erika-aldisa-gunawan.shinyapps.io/IS415_T14_EastKalimantan_New_JTown/
+    
+    # Clustgeo alpha plot
+    output$clustgeo_sugg_alpha <- renderPlot({
+        range.alpha <- seq(0,1,0.01)
+        cr <- choicealpha(D0, D1, range.alpha,
+                          input$clustgeo_no_cluster, graph = TRUE)
+        return(cr)
+    })
+    
+    # ClustGeo clustering map
+    output$clustgeo_cluster_map <- renderPlot({
+        # the socio-economic distances
+        D0 <- dist(dat)
+        tree <- hclustgeo(D0)
+        
+        # the geographic distances between the municipalities
+        D1 <- as.dist(D.geo) 
+        
+        # needs to be an input for the alpha here
+        tree <- hclustgeo(D0,D1,input$clustgeo_alpha)
+        P5bis <- cutree(tree,input$clustgeo_no_cluster)
+        
+        plot(map, border = "grey", col = P5bis, 
+                 main = "Partition P5bis obtained with alpha=0.2 
+         and geographical distances")
+        legend("topleft", legend=paste("cluster",1:5), 
+               fill=1:5, bty="n",border="white")
+    })
+
     ## Spatially Constraied Clustering
     basic_dataset <- shan_ict
     sec_dataset <- shan_sf
@@ -461,7 +549,6 @@ server <- function(input, output, session){
         qtm(shan_sf_spatialcluster, "SP_CLUSTER")
         
     })
-    
     
 }
 
