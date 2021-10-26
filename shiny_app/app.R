@@ -5,7 +5,7 @@ library(cluster)
 library(factoextra)
 
 libs <- c("sf","tmap","tidyverse","maptools","spatstat","raster",
-          "ggplot2","rgeos","rgdal","sp", "stringr")
+          "ggplot2","rgeos","rgdal","sp", "stringr","spdep")
 lapply(libs, library, character.only = TRUE)
 
 ###########################################################################################
@@ -273,12 +273,49 @@ basic_clustering_page <- div(
 
 )
 
+spatially_constrained_clustering_page <- div(
+    titlePanel("Spatially Constrained Clustering"),
+    sidebarLayout(
+        sidebarPanel(
+            selectInput(inputId = "proximity_method_1",
+                        label = "Which proximity method?",
+                        choices = c("Euclidean" = "euclidean",
+                                    "Maximum" = "maximum",
+                                    "Manhattan" = "manhattan",
+                                    "Canberra" = "canberra",
+                                    "Binary" = "binary",
+                                    "Minkowski" = "minkowski"),
+                        selected = "Euclidean",
+                        multiple = FALSE),
+            sliderInput(inputId = "clust_num_1", 
+                        label = "Number of Clusters", 
+                        min = 1,
+                        max = 20, 
+                        value = 3)
+        ),
+        mainPanel(
+            tabsetPanel( 
+                tabPanel(
+                    "Minimum Spanning Tree",
+                    plotOutput("mst_plot")
+                ),
+                tabPanel(
+                    "Choropleth Map",
+                    tmapOutput("chloropleth")
+                )
+            )
+        )
+    )
+    
+)
+
 ## Create the Router
 
 router <- make_router(
     route("/", homepage),
     route("eda", eda_page),
-    route("basic_clustering", basic_clustering_page)
+    route("basic_clustering", basic_clustering_page),
+    route("spatially_constrained_clustering", spatially_constrained_clustering_page)
 )
 
 
@@ -286,7 +323,8 @@ ui <- fluidPage(
     tags$ul(
         tags$li(a(href = route_link("/"), "Homepage")),
         tags$li(a(href = route_link("eda"), "Explanatory Data Analysis")),
-        tags$li(a(href = route_link("basic_clustering"), "Basic Clustering"))
+        tags$li(a(href = route_link("basic_clustering"), "Basic Clustering")),
+        tags$li(a(href = route_link("spatially_constrained_clustering"), "Spatially Constrained Clustering"))
     ),
     router$ui
 )
@@ -381,6 +419,49 @@ server <- function(input, output, session){
         
         qtm(shan_sf_cluster, "CLUSTER")
     })
+    
+    ## Spatially Constraied Clustering
+    basic_dataset <- shan_ict
+    sec_dataset <- shan_sf
+    shan_sp <- as_Spatial(shan_sf)
+    shan.nb <- poly2nb(shan_sp) # neighbour list
+    lcosts <- nbcosts(shan.nb, shan_ict) # cost
+    shan.w <- nb2listw(shan.nb, 
+                       lcosts, 
+                       style="B")
+    shan.mst <- mstree(shan.w)
+    
+    output$mst_plot <- renderPlot({
+        clust6 <- skater(edges = shan.mst[,1:2], 
+                                  data = shan_ict, 
+                                  method = input$proximity_method_1, 
+                                  ncuts = input$clust_num_1-1)
+        plot(shan_sp, border=gray(.5))
+        plot(clust6, 
+             coordinates(shan_sp), 
+             cex.lab=.7,
+             groups.colors=rainbow(input$clust_num_1),
+             cex.circles=0.005,
+             add=TRUE)
+    })
+    
+    output$chloropleth <- renderTmap({
+        clust6 <- skater(edges = shan.mst[,1:2], 
+                         data = shan_ict, 
+                         method = input$proximity_method_1, 
+                         ncuts = input$clust_num_1-1)
+        proxmat <- dist(shan_ict, method = input$proximity_method_1)
+        hclust_ward <- hclust(proxmat, method = 'ward.D')
+        groups <- as.factor(cutree(hclust_ward, k=input$clust_num_1))
+        groups_mat <- as.matrix(clust6$groups)
+        shan_sf_cluster <- cbind(shan_sf, as.matrix(groups)) %>%
+            rename(`CLUSTER`=`as.matrix.groups.`)
+        shan_sf_spatialcluster <- cbind(shan_sf_cluster, as.factor(groups_mat)) %>%
+            rename(`SP_CLUSTER`=`as.factor.groups_mat.`)
+        qtm(shan_sf_spatialcluster, "SP_CLUSTER")
+        
+    })
+    
     
 }
 
