@@ -477,11 +477,14 @@ server <- function(input, output, session){
     
     # ClustGeo Clustering
     # Currently is hardcoded to the estuary dataset to understand clustgeo
-    # alterantive reference: https://github.com/erikaaldisa/IS415_T14_Project/blob/master/app/app.R
+    # https://cran.r-project.org/web/packages/ClustGeo/vignettes/intro_ClustGeo.html
+    # alternative reference: https://github.com/erikaaldisa/IS415_T14_Project/blob/master/app/app.R
     # https://erika-aldisa-gunawan.shinyapps.io/IS415_T14_EastKalimantan_New_JTown/
     
     # Clustgeo alpha plot
     output$clustgeo_sugg_alpha <- renderPlot({
+        D0 <- dist(dat)
+        D1 <- as.dist(D.geo) 
         range.alpha <- seq(0,1,0.01)
         cr <- choicealpha(D0, D1, range.alpha,
                           input$clustgeo_no_cluster, graph = TRUE)
