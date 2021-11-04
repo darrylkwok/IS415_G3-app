@@ -3,6 +3,7 @@ library(shiny.router)
 library(dplyr)
 library(cluster)
 library(factoextra)
+library(leaflet)
 
 libs <- c("sf","tmap","tidyverse","maptools","spatstat","raster",
           "ggplot2","rgeos","rgdal","sp", "stringr", "ClustGeo","spdep")
@@ -171,11 +172,15 @@ upload_page <- div(
     titlePanel("Upload your files"),
     sidebarLayout(
         sidebarPanel(
-            fileInput("file1", "Choose CSV File",
+            fileInput("filecsv", "Choose CSV File",
                       multiple = TRUE,
                       accept = c("text/csv",
                                  "text/comma-separated-values,text/plain",
                                  ".csv")),
+            fileInput(inputId = "filemap",
+                      label = "Upload map. Choose shapefile",
+                      multiple = TRUE,
+                      accept = c('.shp','.dbf','.sbn','.sbx','.shx','.prj')),
             tags$hr(),
             checkboxInput("header", "Header", TRUE),
             radioButtons("sep", "Separator",
@@ -196,9 +201,12 @@ upload_page <- div(
             
         ),
         mainPanel(
-            tableOutput("contents")
+            tableOutput("csvcontents"),
+            tableOutput(outputId = "shpcontents")
+            
         )
     )
+    
 )
 
 eda_page <- div(
@@ -401,7 +409,7 @@ spatially_constrained_clustering_page <- div(
 
 router <- make_router(
     route("/", homepage),
-    route("/upload", upload_page),
+    route("upload", upload_page),
     route("eda", eda_page),
     route("basic_clustering", basic_clustering_page),
     route("clustgeo", clustgeo_page),
@@ -425,10 +433,10 @@ server <- function(input, output, session){
     ## DO NOT REMOVE THIS
     router$server(input, output, session)
     
-    ## DATA UPLOAD
-    output$contents <- renderTable({
-        req(input$file1)
-        df <- read.csv(input$file1$datapath,
+    ## CSV DATA UPLOAD
+    output$csvcontents <- renderTable({
+        req(input$filecsv)
+        df <- read.csv(input$filecsv$datapath,
                        header = input$header,
                        sep = input$sep,
                        quote = input$quote)
@@ -439,6 +447,38 @@ server <- function(input, output, session){
         else {
             return(df)
         }
+    })
+    
+    ## SHAPEFILE DATA UPLOAD
+    output$shpcontents <- renderTable({
+        req(input$filemap)
+        shpdf <- input$filemap
+        
+        # Name of the temporary directory where files are uploaded
+        tempdirname <- dirname(shpdf$datapath[1])
+        
+        # Rename files
+        for (i in 1:nrow(shpdf)) {
+            file.rename(
+                shpdf$datapath[i],
+                paste0(tempdirname, "/", shpdf$name[i])
+            )
+        }
+        
+        # Now we read the shapefile with readOGR() of rgdal package
+        # passing the name of the file with .shp extension.
+        
+        # We use the function grep() to search the pattern "*.shp$"
+        # within each element of the character vector shpdf$name.
+        # grep(pattern="*.shp$", shpdf$name)
+        # ($ at the end denote files that finish with .shp,
+        # not only that contain .shp)
+        map <- readOGR(paste(tempdirname,
+                             shpdf$name[grep(pattern = "*.shp$", shpdf$name)],
+                             sep = "/"
+        ))
+        
+        map
     })
     
     ## EDA 
