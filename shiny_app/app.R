@@ -166,6 +166,41 @@ homepage <- div(
     p("This is the Homepage")
 )
 
+#reference: https://shiny.rstudio.com/articles/upload.html
+upload_page <- div(
+    titlePanel("Upload your files"),
+    sidebarLayout(
+        sidebarPanel(
+            fileInput("file1", "Choose CSV File",
+                      multiple = TRUE,
+                      accept = c("text/csv",
+                                 "text/comma-separated-values,text/plain",
+                                 ".csv")),
+            tags$hr(),
+            checkboxInput("header", "Header", TRUE),
+            radioButtons("sep", "Separator",
+                         choices = c(Comma = ",",
+                                     Semicolon = ";",
+                                     Tab = "\t"),
+                         selected = ","),
+            radioButtons("quote", "Quote",
+                         choices = c(None = "",
+                                     "Double Quote" = '"',
+                                     "Single Quote" = "'"),
+                         selected = '"'),
+            tags$hr(),
+            radioButtons("disp", "Display",
+                         choices = c(Head = "head",
+                                     All = "all"),
+                         selected = "head")
+            
+        ),
+        mainPanel(
+            tableOutput("contents")
+        )
+    )
+)
+
 eda_page <- div(
     titlePanel("EDA"),
     sidebarLayout(
@@ -366,6 +401,7 @@ spatially_constrained_clustering_page <- div(
 
 router <- make_router(
     route("/", homepage),
+    route("/upload", upload_page),
     route("eda", eda_page),
     route("basic_clustering", basic_clustering_page),
     route("clustgeo", clustgeo_page),
@@ -376,6 +412,7 @@ router <- make_router(
 ui <- fluidPage(
     tags$ul(
         tags$li(a(href = route_link("/"), "Homepage")),
+        tags$li(a(href = route_link("/upload"), "Data Upload")),
         tags$li(a(href = route_link("eda"), "Explanatory Data Analysis")),
         tags$li(a(href = route_link("basic_clustering"), "Basic Clustering")),
         tags$li(a(href = route_link("clustgeo"), "ClustGeo")),
@@ -387,6 +424,22 @@ ui <- fluidPage(
 server <- function(input, output, session){
     ## DO NOT REMOVE THIS
     router$server(input, output, session)
+    
+    ## DATA UPLOAD
+    output$contents <- renderTable({
+        req(input$file1)
+        df <- read.csv(input$file1$datapath,
+                       header = input$header,
+                       sep = input$sep,
+                       quote = input$quote)
+        
+        if(input$disp == "head") {
+            return(head(df))
+        }
+        else {
+            return(df)
+        }
+    })
     
     ## EDA 
     eda_dataset = reactive({
