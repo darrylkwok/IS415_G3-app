@@ -249,76 +249,52 @@ eda_page <- div(
     )
 )
 
-basic_clustering_page <- div(
-    titlePanel("Basic Clustering"),
+hierarchical_clustering_page <- div(
+    titlePanel("Hierarchical Clustering"),
     sidebarLayout(
         sidebarPanel(
-            conditionalPanel(
-                condition = "input.tabselected==1",
-                sliderInput(inputId = "max_clust", 
-                            label = "Max number of Clusters", 
-                            min = 1,
-                            max = 20, 
-                            value = 5)
-            ),
-            conditionalPanel(
-                condition = "input.tabselected==2",
-                selectInput(inputId = "clust_method",
-                            label = "Which clustering method?",
-                            choices = c("Ward D" = "ward.D",
-                                        "Ward D2" = "ward.D2",
-                                        "Single" = "single",
-                                        "Complete" = "complete",
-                                        "Average(UPGMA)" = "average",
-                                        "Mcquitty(WPGMA)" = "mcquitty",
-                                        "Median(WPGMC)" = "median",
-                                        "Centroid(UPGMC)" = "centroid"),
-                            selected = "Ward D",
-                            multiple = FALSE),
-                selectInput(inputId = "proximity_method",
-                            label = "Which proximity method?",
-                            choices = c("Euclidean" = "euclidean",
-                                        "Maximum" = "maximum",
-                                        "Manhattan" = "manhattan",
-                                        "Canberra" = "canberra",
-                                        "Binary" = "binary",
-                                        "Minkowski" = "minkowski"),
-                            selected = "Euclidean",
-                            multiple = FALSE),
-                sliderInput(inputId = "clust_num", 
-                            label = "Number of Clusters", 
-                            min = 1,
-                            max = 20, 
-                            value = 3)
-            ),
-            conditionalPanel(
-                condition = "input.tabselected==3",
-                sliderInput(inputId = "k_means_clust_num", 
-                            label = "Number of Clusters", 
-                            min = 1,
-                            max = 20, 
-                            value = 3)
-            )
+            selectInput(inputId = "clust_method",
+                        label = "Which clustering method?",
+                        choices = c("Ward D" = "ward.D",
+                                    "Ward D2" = "ward.D2",
+                                    "Single" = "single",
+                                    "Complete" = "complete",
+                                    "Average(UPGMA)" = "average",
+                                    "Mcquitty(WPGMA)" = "mcquitty",
+                                    "Median(WPGMC)" = "median",
+                                    "Centroid(UPGMC)" = "centroid"),
+                        selected = "Ward D",
+                        multiple = FALSE),
+            selectInput(inputId = "proximity_method",
+                        label = "Which proximity method?",
+                        choices = c("Euclidean" = "euclidean",
+                                    "Maximum" = "maximum",
+                                    "Manhattan" = "manhattan",
+                                    "Canberra" = "canberra",
+                                    "Binary" = "binary",
+                                    "Minkowski" = "minkowski"),
+                        selected = "Euclidean",
+                        multiple = FALSE),
+            sliderInput(inputId = "clust_num", 
+                        label = "Number of Clusters", 
+                        min = 1,
+                        max = 20, 
+                        value = 3),
+            checkboxInput("param_tune_checkbox", "Show suggested number of clusters"),
+            conditionalPanel(condition = "input.param_tune_checkbox",
+                             sliderInput(inputId = "max_clust_num", 
+                                         label = "Max number of Clusters", 
+                                         min = 1,
+                                         max = 20, 
+                                         value = 3),
+                             plotOutput("param_tune", height = 300))
         ),
         mainPanel(
             tabsetPanel( 
-                id = "tabselected",
-                selected = 1,
-                tabPanel(
-                    "Parameter Tuning",
-                    plotOutput("param_tune"),
-                    value = 1
-                ),
                 tabPanel(
                     "Dendrogram and Cluster Map",
                     plotOutput("hier_dend"),
-                    tmapOutput("hier_clust"),
-                    value = 2
-                ),
-                tabPanel(
-                    "K-Means Clustering",
-                    tmapOutput("kmeans"),
-                    value = 3
+                    tmapOutput("hier_clust")
                 )
             )
         )
@@ -411,7 +387,7 @@ router <- make_router(
     route("/", homepage),
     route("upload", upload_page),
     route("eda", eda_page),
-    route("basic_clustering", basic_clustering_page),
+    route("hierarchical_clustering", hierarchical_clustering_page),
     route("clustgeo", clustgeo_page),
     route("spatially_constrained_clustering", spatially_constrained_clustering_page)
 )
@@ -422,7 +398,7 @@ ui <- fluidPage(
         tags$li(a(href = route_link("/"), "Homepage")),
         tags$li(a(href = route_link("/upload"), "Data Upload")),
         tags$li(a(href = route_link("eda"), "Explanatory Data Analysis")),
-        tags$li(a(href = route_link("basic_clustering"), "Basic Clustering")),
+        tags$li(a(href = route_link("hierarchical_clustering"), "Hierarchical Clustering")),
         tags$li(a(href = route_link("clustgeo"), "ClustGeo")),
         tags$li(a(href = route_link("spatially_constrained_clustering"), "Spatially Constrained Clustering"))
     ),
@@ -521,7 +497,7 @@ server <- function(input, output, session){
         }
     })   
     
-    ## Basic Clustering
+    ## Hierarchical Clustering
     basic_dataset <- shan_ict
     sec_dataset <- shan_sf
     
@@ -530,20 +506,9 @@ server <- function(input, output, session){
         gap_stat <- clusGap(shan_ict, 
                             FUN = hcut, 
                             nstart = 25, 
-                            K.max = input$max_clust,
+                            K.max = input$max_clust_num,
                             B = 50)
         fviz_gap_stat(gap_stat)
-    })
-    
-    output$kmeans <- renderTmap({
-        set.seed(123)
-        kmeans <- kmeans(basic_dataset, centers = input$k_means_clust_num, nstart=25)
-        
-        kmeans_basic_df <- data.frame(CLUSTER = kmeans$cluster, sec_dataset) %>%
-            st_as_sf
-        
-        qtm(kmeans_basic_df, 'CLUSTER')
-
     })
     
     output$hier_dend <- renderPlot({
@@ -552,6 +517,7 @@ server <- function(input, output, session){
         hclust_ward <- hclust(proxmat, method = input$clust_method)
         
         plot(hclust_ward, cex=0.6)
+        rect.hclust(hclust_ward, k=input$clust_num, border=2:5)
         
     })
     
