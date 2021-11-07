@@ -5,8 +5,8 @@ library(cluster)
 library(factoextra)
 library(leaflet)
 
-libs <- c("sf","tmap","tidyverse","maptools","spatstat","raster",
-          "ggplot2","rgeos","rgdal","sp", "stringr", "ClustGeo","spdep")
+libs <- c("sf","tmap","tidyverse","maptools","spatstat","raster","corrplot",
+          "ggplot2","rgeos","rgdal","sp", "stringr", "ClustGeo","spdep","reshape2")
 lapply(libs, library, character.only = TRUE)
 
 ###########################################################################################
@@ -213,41 +213,69 @@ eda_page <- div(
     titlePanel("EDA"),
     sidebarLayout(
         sidebarPanel(
-            selectInput(inputId = "room_type",
-                        label = "Which room type?",
-                        choices = c("Private Room" = "Private room",
-                                    "Entire Home/Apartment" = "Entire home/apt",
-                                    "Shared Room" = "Shared room"),
-                        selected = "Private room",
-                        multiple = TRUE),
-            sliderInput(inputId = "price", 
-                        label = "Price", 
-                        min = 0,
-                        max = 13999, 
-                        value = c(100,1000)),
-            selectInput(inputId = "var_of_interest",
-                        label = "Summary by?",
-                        choices = c("Room Type" = "room_type",
-                                    "Neighbourhood Group" = "neighbourhood_group"),
-                        selected = "Room Type",
-                        multiple = FALSE),
-            checkboxInput(inputId = "showData",
-                          label = "Show data table",
-                          value = TRUE)
+            selectInput(inputId = "column_select",
+                        label = "Which column?",
+                        choices = c("RADIO" = "RADIO",
+                                    "TV" = "TV",
+                                    "LLPHONE" = "LLPHONE",
+                                    "MPHONE" = "MPHONE",
+                                    "COMPUTER" = "COMPUTER",
+                                    "INTERNET" = "INTERNET"),
+                        selected = "RADIO",
+                        multiple = FALSE)
         ),
         mainPanel(
             tabsetPanel(
-                tabPanel("Map",
-                         tmapOutput("mapPlot"),
-                         DT::dataTableOutput(outputId = "aTable")
+                tabPanel("Column Distribution",
+                         plotly::plotlyOutput("distPlot")
                 ),
-                tabPanel("Summary",
-                         plotly::plotlyOutput("bar_plot")
+                tabPanel("Correlationn Matrix",
+                         plotly::plotlyOutput("corrPlot")
                 )
             )
         )
     )
 )
+
+# eda_page <- div(
+#     titlePanel("EDA"),
+#     sidebarLayout(
+#         sidebarPanel(
+#             selectInput(inputId = "room_type",
+#                         label = "Which room type?",
+#                         choices = c("Private Room" = "Private room",
+#                                     "Entire Home/Apartment" = "Entire home/apt",
+#                                     "Shared Room" = "Shared room"),
+#                         selected = "Private room",
+#                         multiple = TRUE),
+#             sliderInput(inputId = "price", 
+#                         label = "Price", 
+#                         min = 0,
+#                         max = 13999, 
+#                         value = c(100,1000)),
+#             selectInput(inputId = "var_of_interest",
+#                         label = "Summary by?",
+#                         choices = c("Room Type" = "room_type",
+#                                     "Neighbourhood Group" = "neighbourhood_group"),
+#                         selected = "Room Type",
+#                         multiple = FALSE),
+#             checkboxInput(inputId = "showData",
+#                           label = "Show data table",
+#                           value = TRUE)
+#         ),
+#         mainPanel(
+#             tabsetPanel(
+#                 tabPanel("Map",
+#                          tmapOutput("mapPlot"),
+#                          DT::dataTableOutput(outputId = "aTable")
+#                 ),
+#                 tabPanel("Summary",
+#                          plotly::plotlyOutput("bar_plot")
+#                 )
+#             )
+#         )
+#     )
+# )
 
 hierarchical_clustering_page <- div(
     titlePanel("Hierarchical Clustering"),
@@ -458,44 +486,87 @@ server <- function(input, output, session){
     })
     
     ## EDA 
-    eda_dataset = reactive({
-        listings_2019 %>%
-            filter(room_type == input$room_type) %>%
-            filter(price > input$price)
+    output$distPlot <- plotly::renderPlotly({
+        col = input$column_select
+        ggplot(data=ict_derived, 
+               aes_string(x=col)) +   #selected column
+            geom_histogram(bins=20, 
+                           color="black", 
+                           fill="light blue")
     })
-    output$mapPlot <- renderTmap({
-        tm_shape(shp = eda_dataset(),
-                 bbox = st_bbox(listings_2019))+
-            tm_bubbles(col = "room_type",
-                       size = "price",
-                       border.col = "black",
-                       border.lwd = 0.5)
-    })  
-    output$bar_plot <- plotly::renderPlotly({
-        data <- listings_2019
-        if(input$var_of_interest == "room_type"){
-            plot_bar <- ggplot(data, 
-                               aes(room_type, fill=room_type))+
-                                geom_bar()+
-                                theme_minimal()
-        } else {
-            plot_bar <- ggplot(data, 
-                               aes(neighbourhood_group, fill=neighbourhood_group))+
-                                geom_bar()+
-                                theme_minimal()
-        } 
-        return(plot_bar)
-    })
-    
-    
-    output$aTable <- DT::renderDataTable({
-        if(input$showData){
-            DT::datatable(data = eda_dataset() %>%
-                              select(1:4),
-                          options= list(pageLength = 10),
-                          rownames = FALSE)
+    output$corrPlot <- plotly::renderPlotly({
+        correlation <- round(cor(ict_derived[,12:17]), 2)
+        # Get upper triangle of the correlation matrix
+        get_upper_tri <- function(cormat){
+            cormat[lower.tri(cormat)]<- NA
+            return(cormat)
         }
-    })   
+        upper_tri <- get_upper_tri(correlation)
+        melted_cormat <- melt(upper_tri, na.rm = TRUE)
+        ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value))+
+            geom_tile(color = "white")+
+            scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                                 midpoint = 0, limit = c(-1,1), space = "Lab", 
+                                 name="Pearson\nCorrelation") +
+            theme_minimal()+ # minimal theme
+            theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                             size = 12, hjust = 1))+
+            coord_fixed()
+        ggheatmap + 
+            geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) +
+            theme(
+                axis.title.x = element_blank(),
+                axis.title.y = element_blank(),
+                panel.grid.major = element_blank(),
+                panel.border = element_blank(),
+                panel.background = element_blank(),
+                axis.ticks = element_blank(),
+                legend.justification = c(1, 0),
+                legend.position = c(0.6, 0.7),
+                legend.direction = "horizontal")+
+            guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                                         title.position = "top", title.hjust = 0.5))
+    })
+    
+    
+    # eda_dataset = reactive({
+    #     listings_2019 %>%
+    #         filter(room_type == input$room_type) %>%
+    #         filter(price > input$price)
+    # })
+    # output$mapPlot <- renderTmap({
+    #     tm_shape(shp = eda_dataset(),
+    #              bbox = st_bbox(listings_2019))+
+    #         tm_bubbles(col = "room_type",
+    #                    size = "price",
+    #                    border.col = "black",
+    #                    border.lwd = 0.5)
+    # })  
+    # output$bar_plot <- plotly::renderPlotly({
+    #     data <- listings_2019
+    #     if(input$var_of_interest == "room_type"){
+    #         plot_bar <- ggplot(data, 
+    #                            aes(room_type, fill=room_type))+
+    #                             geom_bar()+
+    #                             theme_minimal()
+    #     } else {
+    #         plot_bar <- ggplot(data, 
+    #                            aes(neighbourhood_group, fill=neighbourhood_group))+
+    #                             geom_bar()+
+    #                             theme_minimal()
+    #     } 
+    #     return(plot_bar)
+    # })
+    # 
+    # 
+    # output$aTable <- DT::renderDataTable({
+    #     if(input$showData){
+    #         DT::datatable(data = eda_dataset() %>%
+    #                           select(1:4),
+    #                       options= list(pageLength = 10),
+    #                       rownames = FALSE)
+    #     }
+    # })   
     
     ## Hierarchical Clustering
     basic_dataset <- shan_ict
