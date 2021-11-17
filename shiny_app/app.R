@@ -1,20 +1,15 @@
 library(shiny)
 library(shiny.router)
-library(dplyr)
-library(cluster)
-library(factoextra)
-library(leaflet)
 
-libs <- c("sf","tmap","tidyverse","maptools","spatstat","raster","corrplot",
+libs <- c( "dplyr", "cluster", "factoextra", "leaflet", "shinythemes",
+           "sf","tmap","tidyverse","maptools","spatstat","raster","corrplot",
           "ggplot2","rgeos","rgdal","sp", "stringr", "ClustGeo","spdep","reshape2")
 lapply(libs, library, character.only = TRUE)
 
-###########################################################################################
 
-# assumption that data upload tool is done! 
-# as such, referring to the datasets directly
-# actually can we just use open street map as the base? 
-# but we'd still need the study area boundaries right
+###########################################################################################
+#                            DATA IMPORT + PRE-PROCESSING
+###########################################################################################
 
 # import geospatial data (boundaries of study area)
 # input: shapefile
@@ -49,7 +44,6 @@ geospatial_processing <- function(input_sf, expected_crs){
 
 sg_sf <- geospatial_processing(sg_sf,3414)
 mpsz_sf <- geospatial_processing(mpsz_sf,3414)
-
 london_sf <- geospatial_processing(london_sf,27700)
 
 ###########################################################################################
@@ -65,12 +59,23 @@ crime <- read_csv ("data/aspatial/crime-types.csv")
 
 # for ClustGeo
 # from https://cran.r-project.org/web/packages/ClustGeo/vignettes/intro_ClustGeo.html
-library(ClustGeo)
+# more info here https://rdrr.io/cran/ClustGeo/man/estuary.html
+# library(ClustGeo)
 data(estuary)
-dat <- estuary$dat
+
+# a data frame with the description of the n=303 municipalities on p=4 socio-demographic variables
+dat <- estuary$dat 
+sel <- c(
+    "Employment Rate" = "employ.rate.city",
+    "Graduate Rate" = "graduate.rate",
+    "Housing Apartment" = "housing.appart", 
+    "Agriculatural Land" = "agri.land")
+
+# a matrix with the geographical distances between the town hall of the n=303 municipalities
 D.geo <- estuary$D.geo
+
+# an object of class SpatialPolygonsDataFrame with the map of the gironde estuary.
 map <- estuary$map
-sel <- map$NOM_COMM%in% c("BORDEAUX", "ARCACHON", "ROYAN") # label of 3 municipalities
 
 ###########################################################################################
 
@@ -110,8 +115,7 @@ listings_2019 <- aspatial_processing("data/aspatial/listings_30062019.csv", 3414
 listings_2021 <- aspatial_processing("data/aspatial/listings_29062021.csv", 3414)
 childcare_sf <- aspatial_processing("data/aspatial/childcare.rds", 3414)
 
-# deriving new variables - penetration rate
-# need a tool for this?
+# need a tool for deriving new variables?
 ict_derived <- ict %>%
     mutate(`RADIO_PR` = `Radio`/`Total households`*1000) %>%
     mutate(`TV_PR` = `Television`/`Total households`*1000) %>%
@@ -134,36 +138,50 @@ ict_derived <- ict %>%
 shan_sf <- left_join(shan_sf, ict_derived, 
                       by=c("TS_PCODE"="TS_PCODE"))
 
-###########################################################################################
-
-# EDA SECTION
-
-###########################################################################################
-
-
 # CLUSTERING SECTION
 
 ## SELECT CLUSTER VARIABLES
 
-
 cluster_vars <- shan_sf %>%
     st_set_geometry(NULL) %>% 
-    dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR")
+    dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
 
 row.names(cluster_vars) <- cluster_vars$"TS.x"
 
-shan_ict <- dplyr::select(cluster_vars, c(2:6))
+shan_ict <- dplyr::select(cluster_vars, c(2:7))
 
 ## Convert dataframe into a matrix
 
 shan_ict_mat <- data.matrix(shan_ict)
+
+# for clustgeo
+shan_dat <- shan_ict
+shan_map <- as_Spatial(shan_sf)
+shan_geo <- st_coordinates(shan_sf)
+shan_geo <- subset(shan_geo, select=c(X, Y))
+colnames(shan_geo) <- c("lon", "lat")
+
+shan_sel <- c(
+     "Radio Penetration Rate" = "RADIO_PR", 
+     "Television Penetration Rate" = "TV_PR", 
+     "Landline Phone Penetration Rate" = "LLPHONE_PR", 
+     "Mobile Phone Penetration Rate" = "MPHONE_PR", 
+     "Computer Penetration Rate" = "COMPUTER_PR", 
+     "Internet Penetration Rate" = "INTERNET_PR")
+
+###########################################################################################
+
+# PAGES
+
+###########################################################################################
+
 
 ## Define the pages
 ### To create a new page, you have to define a new variable and set up the route in the router 
 ### and hardcode it in the ui function of the shinyapp
 
 homepage <- div(
-    titlePanel("Homepage"),
+    titlePanel("About Project"),
     p("This is the Homepage")
 )
 
@@ -229,7 +247,7 @@ eda_page <- div(
                 tabPanel("Column Distribution",
                          plotly::plotlyOutput("distPlot")
                 ),
-                tabPanel("Correlationn Matrix",
+                tabPanel("Correlation Matrix",
                          plotly::plotlyOutput("corrPlot")
                 )
             )
@@ -336,11 +354,11 @@ clustgeo_page <- div(
             conditionalPanel(
                 condition = "input.tabselected==1",
                 tags$strong("ClustGeo spatially constrained clustering method"),
-                # selectInput("clustgeo_var",
-                #             label = "Choose your clustering variables:",
-                #             choices = sel,
-                #             selected = c("Bordeaux" = "BORDEAUX"),
-                #             multiple = TRUE),
+                selectInput("clustgeo_var",
+                            label = "Choose your clustering variables:",
+                            choices = shan_sel,
+                            selected = c("Internet Penetration Rate Rate" = "INTERNET_PR"),
+                            multiple = TRUE),
                 sliderInput("clustgeo_no_cluster",
                             label = "No. of clusters",
                             min = 3,
@@ -406,7 +424,6 @@ spatially_constrained_clustering_page <- div(
             )
         )
     )
-    
 )
 
 ## Create the Router
@@ -416,19 +433,22 @@ router <- make_router(
     route("upload", upload_page),
     route("eda", eda_page),
     route("hierarchical_clustering", hierarchical_clustering_page),
-    route("clustgeo", clustgeo_page),
+    route("clustgeo_clustering", clustgeo_page),
     route("spatially_constrained_clustering", spatially_constrained_clustering_page)
 )
 
 
 ui <- fluidPage(
-    tags$ul(
-        tags$li(a(href = route_link("/"), "Homepage")),
-        tags$li(a(href = route_link("/upload"), "Data Upload")),
-        tags$li(a(href = route_link("eda"), "Explanatory Data Analysis")),
-        tags$li(a(href = route_link("hierarchical_clustering"), "Hierarchical Clustering")),
-        tags$li(a(href = route_link("clustgeo"), "ClustGeo")),
-        tags$li(a(href = route_link("spatially_constrained_clustering"), "Spatially Constrained Clustering"))
+    theme = shinytheme("flatly"),
+    includeCSS("www/main.css"),
+    
+    navbarPage(
+        tabPanel(tags$a(href = route_link("/"), "About Project")),
+        tabPanel(tags$a(href = route_link("/upload"), "Data Upload")),
+        tabPanel(tags$a(href = route_link("/eda"), "Explanatory Data Analysis")),
+        tabPanel(tags$a(href = route_link("/hierarchical_clustering"), "Hierarchical Clustering")),
+        tabPanel(tags$a(href = route_link("/spatially_constrained_clustering"), "Spatially Constrained Clustering")),
+        tabPanel(tags$a(href = route_link("/clustgeo_clustering"), "ClustGeo Clustering")),
     ),
     router$ui
 )
@@ -481,7 +501,6 @@ server <- function(input, output, session){
                              shpdf$name[grep(pattern = "*.shp$", shpdf$name)],
                              sep = "/"
         ))
-        
         map
     })
     
@@ -606,15 +625,17 @@ server <- function(input, output, session){
     })
     
     # ClustGeo Clustering
-    # Currently is hardcoded to the estuary dataset to understand clustgeo
     # https://cran.r-project.org/web/packages/ClustGeo/vignettes/intro_ClustGeo.html
     # alternative reference: https://github.com/erikaaldisa/IS415_T14_Project/blob/master/app/app.R
-    # https://erika-aldisa-gunawan.shinyapps.io/IS415_T14_EastKalimantan_New_JTown/
+    # alternative reference: https://erika-aldisa-gunawan.shinyapps.io/IS415_T14_EastKalimantan_New_JTown/
     
     # Clustgeo alpha plot
     output$clustgeo_sugg_alpha <- renderPlot({
-        D0 <- dist(dat)
-        D1 <- as.dist(D.geo) 
+        D0 <- dist(shan_dat[,input$clustgeo_var])
+        
+        D1 <- geodist(shan_geo, measure = "vincenty")
+        D1 <- as.dist(D1)
+        
         range.alpha <- seq(0,1,0.01)
         cr <- choicealpha(D0, D1, range.alpha,
                           input$clustgeo_no_cluster, graph = TRUE)
@@ -624,11 +645,12 @@ server <- function(input, output, session){
     # ClustGeo clustering map
     output$clustgeo_cluster_map <- renderPlot({
         # the socio-economic distances
-        D0 <- dist(dat)
+        D0 <- dist(shan_dat[,input$clustgeo_var])
         tree <- hclustgeo(D0)
         
         # the geographic distances between the municipalities
-        D1 <- as.dist(D.geo) 
+        D1 <- geodist(shan_geo, measure = "vincenty")
+        D1 <- as.dist(D1)
         
         # needs to be an input for the alpha here
         tree <- hclustgeo(D0,D1,input$clustgeo_alpha)
@@ -641,7 +663,7 @@ server <- function(input, output, session){
                fill=1:5, bty="n",border="white")
     })
 
-    ## Spatially Constraied Clustering
+    ## Spatially Constrained Clustering
     basic_dataset <- shan_ict
     sec_dataset <- shan_sf
     shan_sp <- as_Spatial(shan_sf)
