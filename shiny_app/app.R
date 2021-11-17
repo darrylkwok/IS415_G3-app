@@ -443,6 +443,9 @@ ui <- fluidPage(
     includeCSS("www/main.css"),
     
     navbarPage(
+        title = div(img(src = 'logo.png', style = "margin-top: 0px; padding-right:6px;padding-bottom:20px", height = 55)),
+        windowTitle = "Regionalisation and Geographical Segmentation Tool",
+        
         tabPanel(tags$a(href = route_link("/"), "About Project")),
         tabPanel(tags$a(href = route_link("/upload"), "Data Upload")),
         tabPanel(tags$a(href = route_link("/eda"), "Explanatory Data Analysis")),
