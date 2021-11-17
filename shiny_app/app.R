@@ -157,9 +157,9 @@ shan_ict_mat <- data.matrix(shan_ict)
 # for clustgeo
 shan_dat <- shan_ict
 shan_map <- as_Spatial(shan_sf)
-shan_geo <- st_coordinates(shan_sf)
-shan_geo <- subset(shan_geo, select=c(X, Y))
-colnames(shan_geo) <- c("lon", "lat")
+coords <- coordinates(shan_map)
+row.names(coords) <- shan_map$TS.x
+colnames(coords) <- c("lon", "lat")
 
 shan_sel <- c(
      "Radio Penetration Rate" = "RADIO_PR", 
@@ -633,7 +633,7 @@ server <- function(input, output, session){
     output$clustgeo_sugg_alpha <- renderPlot({
         D0 <- dist(shan_dat[,input$clustgeo_var])
         
-        D1 <- geodist(shan_geo, measure = "vincenty")
+        D1 <- geodist(coords, measure = "vincenty")
         D1 <- as.dist(D1)
         
         range.alpha <- seq(0,1,0.01)
