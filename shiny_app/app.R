@@ -3,7 +3,7 @@ library(shiny.router)
 
 libs <- c( "dplyr", "cluster", "factoextra", "leaflet", "shinythemes",
            "sf","tmap","tidyverse","maptools","spatstat","raster","corrplot",
-          "ggplot2","rgeos","rgdal","sp", "stringr", "ClustGeo","spdep","reshape2")
+          "ggplot2","rgeos","rgdal","sp", "stringr", "ClustGeo","spdep","reshape2", "geodist")
 lapply(libs, library, character.only = TRUE)
 
 
@@ -182,7 +182,7 @@ shan_sel <- c(
 
 homepage <- div(
     titlePanel("About Project"),
-    p("This is the Homepage")
+    p("This is a regionalisation & geographical segmentation tool for our IS415 Project.")
 )
 
 #reference: https://shiny.rstudio.com/articles/upload.html
@@ -347,7 +347,7 @@ hierarchical_clustering_page <- div(
     )
 )
 
-clustgeo_page <- div(
+clustgeo_clustering_page <- div(
     titlePanel("ClustGeo Method"),
     sidebarLayout(
         sidebarPanel(
@@ -357,7 +357,7 @@ clustgeo_page <- div(
                 selectInput("clustgeo_var",
                             label = "Choose your clustering variables:",
                             choices = shan_sel,
-                            selected = c("Internet Penetration Rate Rate" = "INTERNET_PR"),
+                            selected = c("Internet Penetration Rate" = "INTERNET_PR"),
                             multiple = TRUE),
                 sliderInput("clustgeo_no_cluster",
                             label = "No. of clusters",
@@ -433,7 +433,7 @@ router <- make_router(
     route("upload", upload_page),
     route("eda", eda_page),
     route("hierarchical_clustering", hierarchical_clustering_page),
-    route("clustgeo_clustering", clustgeo_page),
+    route("clustgeo_clustering", clustgeo_clustering_page),
     route("spatially_constrained_clustering", spatially_constrained_clustering_page)
 )
 
@@ -627,7 +627,7 @@ server <- function(input, output, session){
         qtm(shan_sf_cluster, "CLUSTER")
     })
     
-    # ClustGeo Clustering
+    ## ClustGeo Clustering
     # https://cran.r-project.org/web/packages/ClustGeo/vignettes/intro_ClustGeo.html
     # alternative reference: https://github.com/erikaaldisa/IS415_T14_Project/blob/master/app/app.R
     # alternative reference: https://erika-aldisa-gunawan.shinyapps.io/IS415_T14_EastKalimantan_New_JTown/
@@ -649,19 +649,18 @@ server <- function(input, output, session){
     output$clustgeo_cluster_map <- renderPlot({
         # the socio-economic distances
         D0 <- dist(shan_dat[,input$clustgeo_var])
-        tree <- hclustgeo(D0)
+        # tree <- hclustgeo(D0)
         
         # the geographic distances between the municipalities
-        D1 <- geodist(shan_geo, measure = "vincenty")
+        D1 <- geodist(coords, measure = "vincenty")
         D1 <- as.dist(D1)
         
         # needs to be an input for the alpha here
         tree <- hclustgeo(D0,D1,input$clustgeo_alpha)
         P5bis <- cutree(tree,input$clustgeo_no_cluster)
         
-        plot(map, border = "grey", col = P5bis, 
-                 main = "Partition P5bis obtained with alpha=0.2 
-         and geographical distances")
+        plot(shan_map, border = "grey", col = P5bis, 
+                 main = "Partition P5bis obtained with alpha=0.2 and geographical distances")
         legend("topleft", legend=paste("cluster",1:5), 
                fill=1:5, bty="n",border="white")
     })
