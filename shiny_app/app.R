@@ -341,7 +341,38 @@ hierarchical_clustering_page <- div(
                     "Dendrogram and Cluster Map",
                     plotOutput("hier_dend"),
                     tmapOutput("hier_clust")
-                )
+                ),
+                tabPanel("About Hierarchical Clustering",
+                         column(12,
+                                h2("What is Hierarchical Clustering?"),
+                                tags$br(),
+                                h5("Hierarchical clustering is an algorithm that groups similar objects 
+                                   into groups called clusters. The endpoint is a set of clusters, 
+                                   where each cluster is distinct from each other cluster, 
+                                   and the objects within each cluster are broadly similar to each other."),
+                                h5("There are two types of Hierarchical clustering:"),
+                                tags$ul(
+                                    tags$li("Agglomerative clustering: Known as AGNES (Agglomerative Nesting), and works bottom-up.
+                                    Each object is initially considered as a single-element cluster (leaf). 
+                                    At each step of the algorithm, the two clusters that are the most similar 
+                                    are combined into a new bigger cluster (nodes). This procedure is iterated until 
+                                    all points are member of just one single big cluster (root). The result is a 
+                                    tree which can be plotted as a dendrogram."),
+                                    tags$li("Divisive hierarchical clustering: Known as DIANA (Divise Analysis),
+                                    and it works top-down, inverse of AGNES. It begins with the root, in which all objects
+                                    are included in a single cluster. At each step of iteration, the most heterogeneous 
+                                    cluster is divided into two. The process is iterated until all objects are in their own cluster.")
+                                ),
+                                h5("These are agglomeration/linkage functions that groups the objects into hierarchical cluster tree based on the proximity matrix (similarity) generated:"),
+                                tags$ul(
+                                    tags$li("Ward: minimizes total within-cluster variance, the pair of clusters with minimum between-cluster distance are merged"),
+                                    tags$li("Complete: computes all pairwise dissimilarities between elements two clusters, and considers the maximum value as the distance between the two clusters, tend to produce compact clusters"),
+                                    tags$li("Average: computes all pairwise dissimilarities between elements two clusters, and considers the average value as the distance between the two clusters"),
+                                    tags$li("Single: computes all pairwise dissimilarities between elements two clusters, and considers the minimum value as the distance between the two clusters, tend to produce loose clusters"),
+                                    tags$li("Centroid: computes the dissimilarity between the centroid for cluster 1 and centroid for cluster 2 and considers it as the distance")
+                                ),
+                         )
+                ),
             )
         )
     )
@@ -386,7 +417,25 @@ clustgeo_clustering_page <- div(
                     plotOutput("clustgeo_cluster_map"),
                      value = 1
                 ),
-            )
+            ),
+            tabPanel("About ClustGeo Clustering",
+                     column(12,
+                            h2("What is ClustGeo clustering?"),
+                            tags$br(),
+                            h5("ClustGeo is an implementation of Ward-like hierarchical clustering 
+                            when the dissimilarities are not necessarily Euclidean 
+                            and the weights can be non-uniform. 
+                               The hclustgeo function of ClustGeo package takes two 
+                               dissimilarity matrices, D0 & D1, and a mixing parameter alpha between 0 and 1."),
+                            tags$ul(
+                                tags$li("D0: euclidean distance matrix performed with socio-demographic/socio-economic continuous variables, obtained through dist() function"),
+                                tags$li("D1: second dissimilarity matrix to compute the geographical proximity between places in the study area, obtained through geodist() function")
+                            ),
+                            h5("Here, D0 gives the feature space while D1 gives the contiguity constraints, in order to get more geographically compact clusters and not fragmented clusters."),
+                            h5("The alpha value sets the importance of the contiguity constraint (distance matrix) in the clustering process."),
+                            h5("The idea is to determine a alpha value which increases the spatial contiguity without deteriorating the quality of the solution based on the D0 variables (socio-economic variables).")
+                     )
+            ),
         )
     )
 )
