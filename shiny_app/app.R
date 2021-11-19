@@ -417,26 +417,27 @@ clustgeo_clustering_page <- div(
                     plotOutput("clustgeo_cluster_map"),
                      value = 1
                 ),
-            ),
-            tabPanel("About ClustGeo Clustering",
-                     column(12,
-                            h2("What is ClustGeo clustering?"),
-                            tags$br(),
-                            h5("ClustGeo is an implementation of Ward-like hierarchical clustering.
+                tabPanel("About ClustGeo Clustering",
+                         column(12,
+                                h2("What is ClustGeo clustering?"),
+                                tags$br(),
+                                h5("ClustGeo is an implementation of Ward-like hierarchical clustering.
                                The hclustgeo function of ClustGeo package takes two 
                                dissimilarity matrices, D0 & D1, and a mixing parameter alpha between 0 and 1.
                                The dissimilarities can be non-Euclidean 
                                and the weights of the observations can be non-uniform"),
-                            tags$ul(
-                                tags$li("D0: euclidean distance matrix performed with socio-demographic/socio-economic continuous variables, obtained through dist() function"),
-                                tags$li("D1: second dissimilarity matrix to compute the geographical proximity between places in the study area, obtained through geodist() function")
-                            ),
-                            h5("The alpha value sets the importance of the contiguity constraint (distance matrix) in the clustering process."),
-                            h5("The idea is to determine a value of alpha which increases the spatial contiguity 
+                                tags$ul(
+                                    tags$li("D0: euclidean distance matrix performed with socio-demographic/socio-economic continuous variables, obtained through dist() function"),
+                                    tags$li("D1: second dissimilarity matrix to compute the geographical proximity between places in the study area, obtained through geodist() function")
+                                ),
+                                h5("The alpha value sets the importance of the contiguity constraint (distance matrix) in the clustering process."),
+                                h5("The idea is to determine a value of alpha which increases the spatial contiguity 
                                without deteriorating too much the quality of the solution based on the variables 
                                of interest i.e. those of the feature space.")
-                     )
+                         )
+                ),
             ),
+            
         )
     )
 )
@@ -470,7 +471,30 @@ spatially_constrained_clustering_page <- div(
                 tabPanel(
                     "Choropleth Map",
                     tmapOutput("chloropleth")
-                )
+                ),
+                tabPanel("About SKATER",
+                         column(12,
+                                h2("What is SKATER?"),
+                                tags$br(),
+                                h5("SKATER, also known as the Spatial Kluster analysis by Tree Edge Removal
+                                Assuncao et al (2006) algorithm, is a contiguity-constrained clustering.
+                                   It focuses on pruning a minimum spanning tree constructed from 
+                                   the adjacency graph to to achieve maximum internal homogeneity."),
+                                h5("Steps required involve: "),
+                                tags$ul(
+                                    tags$li("Building neighbour/contiguity list graph"),
+                                    tags$li("Computing the minimum spanning tree, which minimizes a cost 
+                                            function to minimize sum of dissimilarities over all nodes"),
+                                    tags$li("Pruning/cutting edges of the tree for desired number of clusters")
+                                ),
+                                h5("Proximity Methods: "),
+                                tags$ul(
+                                    tags$li("can add here"),
+                                    tags$li("more stuff here"),
+                                    tags$li("add as needed!")
+                                ),
+                    )
+                ),
             )
         )
     )
