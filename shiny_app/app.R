@@ -174,7 +174,7 @@ upload_page <- div(
         ),
         mainPanel(
             tableOutput("csvcontents"),
-            tableOutput(outputId = "shpcontents")
+            #tableOutput(outputId = "shpcontents")
         )
     )
     
