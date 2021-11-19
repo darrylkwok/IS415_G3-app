@@ -171,19 +171,15 @@ upload_page <- div(
     
 )
 
+basic_dataset <- shan_ict
 eda_page <- div(
     titlePanel("EDA"),
     sidebarLayout(
         sidebarPanel(
             selectInput(inputId = "column_select",
                         label = "Which column?",
-                        choices = c("RADIO" = "RADIO",
-                                    "TV" = "TV",
-                                    "LLPHONE" = "LLPHONE",
-                                    "MPHONE" = "MPHONE",
-                                    "COMPUTER" = "COMPUTER",
-                                    "INTERNET" = "INTERNET"),
-                        selected = "RADIO",
+                        choices = colnames(basic_dataset),
+                        selected = colnames(basic_dataset)[0],
                         multiple = FALSE)
         ),
         mainPanel(
@@ -486,16 +482,18 @@ server <- function(input, output, session){
     })
     
     ## EDA 
+    basic_dataset <- shan_ict
+    
     output$distPlot <- plotly::renderPlotly({
         col = input$column_select
-        ggplot(data=ict_derived, 
+        ggplot(data=basic_dataset, 
                aes_string(x=col)) +   #selected column
             geom_histogram(bins=20, 
                            color="black", 
                            fill="light blue")
     })
     output$corrPlot <- plotly::renderPlotly({
-        correlation <- round(cor(ict_derived[,12:17]), 2)
+        correlation <- round(cor(basic_dataset), 2)
         # Get upper triangle of the correlation matrix
         get_upper_tri <- function(cormat){
             cormat[lower.tri(cormat)]<- NA
@@ -604,9 +602,10 @@ server <- function(input, output, session){
     ## Spatially Constrained Clustering
     basic_dataset <- shan_ict
     sec_dataset <- shan_sf
-    shan_sp <- as_Spatial(shan_sf)
+    
+    shan_sp <- as_Spatial(sec_dataset)
     shan.nb <- poly2nb(shan_sp) # neighbour list
-    lcosts <- nbcosts(shan.nb, shan_ict) # cost
+    lcosts <- nbcosts(shan.nb, basic_dataset) # cost
     shan.w <- nb2listw(shan.nb, 
                        lcosts, 
                        style="B")
@@ -614,7 +613,7 @@ server <- function(input, output, session){
     
     output$mst_plot <- renderPlot({
         clust6 <- skater(edges = shan.mst[,1:2], 
-                                  data = shan_ict, 
+                                  data = basic_dataset, 
                                   method = input$proximity_method_1, 
                                   ncuts = input$clust_num_1-1)
         plot(shan_sp, border=gray(.5))
@@ -628,14 +627,14 @@ server <- function(input, output, session){
     
     output$chloropleth <- renderTmap({
         clust6 <- skater(edges = shan.mst[,1:2], 
-                         data = shan_ict, 
+                         data = basic_dataset, 
                          method = input$proximity_method_1, 
                          ncuts = input$clust_num_1-1)
-        proxmat <- dist(shan_ict, method = input$proximity_method_1)
+        proxmat <- dist(basic_dataset, method = input$proximity_method_1)
         hclust_ward <- hclust(proxmat, method = 'ward.D')
         groups <- as.factor(cutree(hclust_ward, k=input$clust_num_1))
         groups_mat <- as.matrix(clust6$groups)
-        shan_sf_cluster <- cbind(shan_sf, as.matrix(groups)) %>%
+        shan_sf_cluster <- cbind(sec_dataset, as.matrix(groups)) %>%
             rename(`CLUSTER`=`as.matrix.groups.`)
         shan_sf_spatialcluster <- cbind(shan_sf_cluster, as.factor(groups_mat)) %>%
             rename(`SP_CLUSTER`=`as.factor.groups_mat.`)
