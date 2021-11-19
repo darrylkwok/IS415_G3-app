@@ -1,18 +1,28 @@
 ---
-title: Short Paper
+title: R Shiny Application for Geospatial Clustering Analysis
 author:
-  - name: Darryl Kwok
+  - name: Megan Sim Tze Yen
+    email: megansim.2018@smu.edu.sg
     affiliation: Singapore Management University
-  - name: Megan Sim
+  - name: Darryl Kwok Bing Heng
+    email: darryl.kwok.2018@smu.edu.sg
     affiliation: Singapore Management University
-  - name: Xu Pengtai
-    affiliation: National University of Singapore
-abstract: |
-  With Geographical Information being readily available everywhere, users now have a diverse range of data to perform Geospatial Analysis. The steps taken to prepare the data for in-depth analysis usually differ across datasets. The subsequent actions executed after data preprocessing are strikingly similar across Geospatial projects that falls under the same category i.e. Geographic Segmentation. To meet the rising demand for quick but accurate generation of the project results, we designed and developed a Geographical Segmentation Application that utilises different clustering algorithms such as, Hierarchical Clustering, Clustgeo and SKATER.
+  - name: Pengtai Xu
+    email: pengtai.xu.2021@smu.edu.sg
+    affiliation: Singapore Management University
+
 bibliography: sigproc.bib
 csl: acm-sig-proceedings.csl
 output: rticles::acm_article
 ---
+
+
+
+# Abstract 
+With Geographical Information being readily available everywhere, users now have a diverse range of data to perform Geospatial Analysis. The steps taken to prepare the data for in-depth analysis usually differ across datasets. The subsequent actions executed after data preprocessing are strikingly similar across Geospatial projects that falls under the same category i.e. Geographic Segmentation. To meet the rising demand for quick but accurate generation of the project results, we designed and developed a Geographical Segmentation Application that utilises different clustering algorithms such as, Hierarchical Clustering, Clustgeo and SKATER. 
+
+
+
 
 # Introduction
 Comprehensive plans are required to set goals and guidelines for future growth and development. These plans are required to improve the welfare of the people and induce the creation of better social, economic and physical environments. Government bodies often create untargeted and uniform policies or strategies that hope to address the majority of the issues in the country. They often fail to consider the specific needs of each group that are across the country.
@@ -48,23 +58,23 @@ We have a sequential flow in terms of user journey with the application. The ove
 We have a consistent design for each section of the dashboard. For each page, we have a control panel on the left, which allows users to select analysis methods according to their own needs. On the right, we show the detailed results of the analysis in intuitive visualizations. 
 
 
-![A Sample Page for Layout Demonstration](){}
+![A Sample Page for Layout Demonstration](images/f1){}
 
 
 
 # Demonstration
 We allow users to upload their own datasets for clustering analysis (Figure 2).
 
-![Data Upload Page](){}
+![Data Upload Page](images/f2){}
 
 After data uploading, users are able to conduct exploratory data analysis to decide the clustering method suitable for their case (Figure 3). 
 
 
-![Exploratory Data Analysis Page](){}
+![Exploratory Data Analysis Page](images/f3){}
 
 Users then go to the most suitable clustering analysis method to conduct detailed analysis in order to understand the clustering pattern of their geospatial dataset (Figure 4). 
 
-![ClustGeo Clustering Analysis Page](){}
+![ClustGeo Clustering Analysis Page](images/f4){}
 
 
 # Discussion
@@ -82,3 +92,18 @@ Additional pre-processing features: our preprocessing is the default preprocessi
 Auto-detect & suggest creation of new variables: In our test dataset, we have preemptively created a new set of variables for gauging the penetration rate (for each ICT measure), which gives a more accurate sensing of distribution over a counting-based distribution. However, it would be ideal if the creation of such new variables is intuitively derived from the dataset: the user should have some input as to what new variable they want to derive, and for users who are less sure about which variables are appropriate for geographical segmentation, the tool should suggest the recommendation of new variables.
 Visualisation of segmentation over time: certain applications of regionalisation, such as a study on the cases of a particular disease, might want to find out if there was a change of the regions over time, and if so, what associated variables could have served as contributing factors. An interactive visualisation or a .gif of the regions over a period of time would prove to be beneficial for such cases.
 Greater customisation: customisation options such as choosing the palette of the visualisations or being able to title said visualisations might be important for users who want to use the visualisations in their work.
+
+
+# References
+
+---
+references:
+- id: fenner2012a
+  title: "The eyes have it: A task by data type taxonomy for information visualization"
+  author:
+  - family: Shneiderman
+    given: B.
+  container-title: IEEE Conference on Visual Languages
+  page: 336-343
+  type: article-journal
+...
