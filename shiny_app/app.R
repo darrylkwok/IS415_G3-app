@@ -108,8 +108,9 @@ homepage <- div(
 basic_dataset <- shan_ict
 sec_dataset <- shan_sf
 
-if(exists("df")){
-    cluster_vars <- df %>%
+if(exists("shpdf")){
+    sec_dataset <- left_join(shpdf, df, by=c("TS_PCODE"="TS_PCODE"))
+    cluster_vars <- sec_dataset %>%
         st_set_geometry(NULL) %>% 
         dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
     row.names(cluster_vars) <- cluster_vars$"TS.x"
@@ -117,25 +118,20 @@ if(exists("df")){
     
     basic_dataset<- new_ict
 } else{
+    sec_dataset <- shan_sf
     basic_dataset <- shan_ict
 }
 
-if(exists("shpdf")){
-    sec_dataset <- left_join(shpdf, df, by=c("TS_PCODE"="TS_PCODE"))
-} else{
-    sec_dataset <- shan_sf
-}
-
 # basic_dataset <- reactive({
-#     if(exists(df)){
-#         basic_dataset <- df
+#     if(exists("new_ict")){
+#         basic_dataset <- new_ict
 #     } else{
 #         basic_dataset <- shan_ict
 #     }
 # })
 # 
 # sec_dataset <- reactive({
-#     if(exists(shpdf)){
+#     if(exists("shpdf")){
 #         sec_dataset <- left_join(shpdf, df, 
 #                                  by=c("TS_PCODE"="TS_PCODE"))
 #     } else{
