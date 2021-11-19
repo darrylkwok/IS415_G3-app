@@ -422,18 +422,19 @@ clustgeo_clustering_page <- div(
                      column(12,
                             h2("What is ClustGeo clustering?"),
                             tags$br(),
-                            h5("ClustGeo is an implementation of Ward-like hierarchical clustering 
-                            when the dissimilarities are not necessarily Euclidean 
-                            and the weights can be non-uniform. 
+                            h5("ClustGeo is an implementation of Ward-like hierarchical clustering.
                                The hclustgeo function of ClustGeo package takes two 
-                               dissimilarity matrices, D0 & D1, and a mixing parameter alpha between 0 and 1."),
+                               dissimilarity matrices, D0 & D1, and a mixing parameter alpha between 0 and 1.
+                               The dissimilarities can be non-Euclidean 
+                               and the weights of the observations can be non-uniform"),
                             tags$ul(
                                 tags$li("D0: euclidean distance matrix performed with socio-demographic/socio-economic continuous variables, obtained through dist() function"),
                                 tags$li("D1: second dissimilarity matrix to compute the geographical proximity between places in the study area, obtained through geodist() function")
                             ),
-                            h5("Here, D0 gives the feature space while D1 gives the contiguity constraints, in order to get more geographically compact clusters and not fragmented clusters."),
                             h5("The alpha value sets the importance of the contiguity constraint (distance matrix) in the clustering process."),
-                            h5("The idea is to determine a alpha value which increases the spatial contiguity without deteriorating the quality of the solution based on the D0 variables (socio-economic variables).")
+                            h5("The idea is to determine a value of alpha which increases the spatial contiguity 
+                               without deteriorating too much the quality of the solution based on the variables 
+                               of interest i.e. those of the feature space.")
                      )
             ),
         )
