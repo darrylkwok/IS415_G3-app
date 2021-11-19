@@ -51,6 +51,7 @@ ict <- read_csv ("data/aspatial/final-Shan-ICT.csv")
 # assumption that all Lng/Lat are ESPG 4326 i.e. WGS84, World Geodetic System 1984
 # input: .csv with lng/lat
 # output: simple features data frame
+# currently not used as no aspatial data with lng/lat values
 
 # pre-processing function needs to:
 # - import data
@@ -79,42 +80,16 @@ aspatial_processing <- function(input_filepath, expected_crs){
     return(return_sf)
 }
 
-# needs user input to left_join after data upload and both dfs are intialised (conditional panel?) 
+# needs user input to left_join after data upload and both dfs are intialised
 shan_sf <- left_join(shan_sf, ict, 
                       by=c("TS_PCODE"="TS_PCODE"))
 
-###########################################################################################
-#                            CLUSTERING
-###########################################################################################
-
-## SELECT CLUSTER VARIABLES
-
+# needs user input for selecting clustering variables
 cluster_vars <- shan_sf %>%
     st_set_geometry(NULL) %>% 
     dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
-
 row.names(cluster_vars) <- cluster_vars$"TS.x"
-
 shan_ict <- dplyr::select(cluster_vars, c(2:7))
-
-## Convert dataframe into a matrix
-
-shan_ict_mat <- data.matrix(shan_ict)
-
-# for clustgeo
-shan_dat <- shan_ict
-shan_map <- as_Spatial(shan_sf)
-coords <- coordinates(shan_map)
-row.names(coords) <- shan_map$TS.x
-colnames(coords) <- c("lon", "lat")
-
-shan_sel <- c(
-     "Radio Penetration Rate" = "RADIO_PR", 
-     "Television Penetration Rate" = "TV_PR", 
-     "Landline Phone Penetration Rate" = "LLPHONE_PR", 
-     "Mobile Phone Penetration Rate" = "MPHONE_PR", 
-     "Computer Penetration Rate" = "COMPUTER_PR", 
-     "Internet Penetration Rate" = "INTERNET_PR")
 
 ###########################################################################################
 # PAGES
@@ -126,8 +101,30 @@ shan_sel <- c(
 
 homepage <- div(
     titlePanel("About Project"),
-    p("This is a regionalisation & geographical segmentation tool for our IS415 Project.")
+    p("This is a regionalisation & geographical segmentation tool for our IS415 Project."),
+    textOutput("choose")
 )
+
+basic_dataset <- shan_ict
+sec_dataset <- shan_sf
+
+# basic_dataset <- reactive({
+#     if(exists(df)){
+#         basic_dataset <- df
+#     } else{
+#         basic_dataset <- shan_ict
+#     }
+# })
+# 
+# sec_dataset <- reactive({
+#     if(exists(shpdf)){
+#         #stopgap for now
+#         sec_dataset <- left_join(shpdf, df, 
+#                                  by=c("TS_PCODE"="TS_PCODE"))
+#     } else{
+#         sec_dataset <- shan_sf
+#     }
+# })
 
 #reference: https://shiny.rstudio.com/articles/upload.html
 upload_page <- div(
@@ -165,13 +162,11 @@ upload_page <- div(
         mainPanel(
             tableOutput("csvcontents"),
             tableOutput(outputId = "shpcontents")
-            
         )
     )
     
 )
 
-basic_dataset <- shan_ict
 eda_page <- div(
     titlePanel("EDA"),
     sidebarLayout(
@@ -179,7 +174,7 @@ eda_page <- div(
             selectInput(inputId = "column_select",
                         label = "Which column?",
                         choices = colnames(basic_dataset),
-                        selected = colnames(basic_dataset)[0],
+                        selected = colnames(basic_dataset)[1],
                         multiple = FALSE)
         ),
         mainPanel(
@@ -270,9 +265,9 @@ hierarchical_clustering_page <- div(
                                     tags$li("Average: computes all pairwise dissimilarities between elements two clusters, and considers the average value as the distance between the two clusters"),
                                     tags$li("Single: computes all pairwise dissimilarities between elements two clusters, and considers the minimum value as the distance between the two clusters, tend to produce loose clusters"),
                                     tags$li("Centroid: computes the dissimilarity between the centroid for cluster 1 and centroid for cluster 2 and considers it as the distance")
-                                ),
+                                )
                          )
-                ),
+                )
             )
         )
     )
@@ -287,8 +282,8 @@ clustgeo_clustering_page <- div(
                 tags$strong("ClustGeo spatially constrained clustering method"),
                 selectInput("clustgeo_var",
                             label = "Choose your clustering variables:",
-                            choices = shan_sel,
-                            selected = c("Internet Penetration Rate" = "INTERNET_PR"),
+                            choices = colnames(basic_dataset),
+                            selected = colnames(basic_dataset)[1],
                             multiple = TRUE),
                 sliderInput("clustgeo_no_cluster",
                             label = "No. of clusters",
@@ -335,15 +330,14 @@ clustgeo_clustering_page <- div(
                                without deteriorating too much the quality of the solution based on the variables 
                                of interest i.e. those of the feature space.")
                          )
-                ),
-            ),
-            
+                )
+            )
         )
     )
 )
 
 spatially_constrained_clustering_page <- div(
-    titlePanel("Spatially Constrained Clustering"),
+    titlePanel("Spatially Constrained Clustering (SKATER Method)"),
     sidebarLayout(
         sidebarPanel(
             selectInput(inputId = "proximity_method_1",
@@ -386,22 +380,15 @@ spatially_constrained_clustering_page <- div(
                                     tags$li("Computing the minimum spanning tree, which minimizes a cost 
                                             function to minimize sum of dissimilarities over all nodes"),
                                     tags$li("Pruning/cutting edges of the tree for desired number of clusters")
-                                ),
-                                h5("Proximity Methods: "),
-                                tags$ul(
-                                    tags$li("can add here"),
-                                    tags$li("more stuff here"),
-                                    tags$li("add as needed!")
-                                ),
+                                )
                     )
-                ),
+                )
             )
         )
     )
 )
 
 ## Create the Router
-
 router <- make_router(
     route("/", homepage),
     route("upload", upload_page),
@@ -425,7 +412,7 @@ ui <- fluidPage(
         tabPanel(tags$a(href = route_link("/eda"), "Explanatory Data Analysis")),
         tabPanel(tags$a(href = route_link("/hierarchical_clustering"), "Hierarchical Clustering")),
         tabPanel(tags$a(href = route_link("/spatially_constrained_clustering"), "Spatially Constrained Clustering")),
-        tabPanel(tags$a(href = route_link("/clustgeo_clustering"), "ClustGeo Clustering")),
+        tabPanel(tags$a(href = route_link("/clustgeo_clustering"), "ClustGeo Clustering"))
     ),
     router$ui
 )
@@ -434,10 +421,21 @@ server <- function(input, output, session){
     ## DO NOT REMOVE THIS
     router$server(input, output, session)
     
+    output$choose <- reactive({
+        if((is.null(input$filecsv))&(is.null(input$filemap)))
+        {
+            "No input given yet."
+        }
+        else
+        {
+            "Data input passed."
+        }
+    })
+    
     ## CSV DATA UPLOAD
     output$csvcontents <- renderTable({
         req(input$filecsv)
-        df <- read.csv(input$filecsv$datapath,
+        df <<- read.csv(input$filecsv$datapath,
                        header = input$header,
                        sep = input$sep,
                        quote = input$quote)
@@ -453,7 +451,7 @@ server <- function(input, output, session){
     ## SHAPEFILE DATA UPLOAD
     output$shpcontents <- renderTable({
         req(input$filemap)
-        shpdf <- input$filemap
+        shpdf <<- input$filemap
         
         # Name of the temporary directory where files are uploaded
         tempdirname <- dirname(shpdf$datapath[1])
@@ -482,9 +480,8 @@ server <- function(input, output, session){
     })
     
     ## EDA 
-    basic_dataset <- shan_ict
-    
     output$distPlot <- plotly::renderPlotly({
+
         col = input$column_select
         ggplot(data=basic_dataset, 
                aes_string(x=col)) +   #selected column
@@ -527,12 +524,9 @@ server <- function(input, output, session){
     })
 
     ## Hierarchical Clustering
-    basic_dataset <- shan_ict
-    sec_dataset <- shan_sf
-    
     output$param_tune <- renderPlot({
         set.seed(12345)
-        gap_stat <- clusGap(shan_ict, 
+        gap_stat <- clusGap(basic_dataset, 
                             FUN = hcut, 
                             nstart = 25, 
                             K.max = input$max_clust_num,
@@ -541,6 +535,7 @@ server <- function(input, output, session){
     })
     
     output$hier_dend <- renderPlot({
+        
         proxmat <- dist(basic_dataset, method = input$proximity_method)
         
         hclust_ward <- hclust(proxmat, method = input$clust_method)
@@ -551,6 +546,7 @@ server <- function(input, output, session){
     })
     
     output$hier_clust <- renderTmap({
+        
         proxmat <- dist(basic_dataset, method = input$proximity_method)
         
         hclust_ward <- hclust(proxmat, method = input$clust_method)
@@ -568,7 +564,13 @@ server <- function(input, output, session){
  
     # Clustgeo alpha plot
     output$clustgeo_sugg_alpha <- renderPlot({
-        D0 <- dist(shan_dat[,input$clustgeo_var])
+        
+        D0 <- dist(basic_dataset[,input$clustgeo_var])
+        
+        shan_map <- as_Spatial(sec_dataset)
+        coords <- coordinates(shan_map)
+        row.names(coords) <- shan_map$TS.x
+        colnames(coords) <- c("lon", "lat")
         
         D1 <- geodist(coords, measure = "vincenty")
         D1 <- as.dist(D1)
@@ -581,9 +583,15 @@ server <- function(input, output, session){
     
     # ClustGeo clustering map
     output$clustgeo_cluster_map <- renderPlot({
+        
         # the socio-economic distances
-        D0 <- dist(shan_dat[,input$clustgeo_var])
+        D0 <- dist(basic_dataset[,input$clustgeo_var])
         # tree <- hclustgeo(D0)
+        
+        shan_map <- as_Spatial(sec_dataset)
+        coords <- coordinates(shan_map)
+        row.names(coords) <- shan_map$TS.x
+        colnames(coords) <- c("lon", "lat")
         
         # the geographic distances between the municipalities
         D1 <- geodist(coords, measure = "vincenty")
@@ -600,8 +608,6 @@ server <- function(input, output, session){
     })
 
     ## Spatially Constrained Clustering
-    basic_dataset <- shan_ict
-    sec_dataset <- shan_sf
     
     shan_sp <- as_Spatial(sec_dataset)
     shan.nb <- poly2nb(shan_sp) # neighbour list
@@ -612,6 +618,7 @@ server <- function(input, output, session){
     shan.mst <- mstree(shan.w)
     
     output$mst_plot <- renderPlot({
+        
         clust6 <- skater(edges = shan.mst[,1:2], 
                                   data = basic_dataset, 
                                   method = input$proximity_method_1, 
@@ -626,6 +633,7 @@ server <- function(input, output, session){
     })
     
     output$chloropleth <- renderTmap({
+        
         clust6 <- skater(edges = shan.mst[,1:2], 
                          data = basic_dataset, 
                          method = input$proximity_method_1, 
@@ -639,9 +647,7 @@ server <- function(input, output, session){
         shan_sf_spatialcluster <- cbind(shan_sf_cluster, as.factor(groups_mat)) %>%
             rename(`SP_CLUSTER`=`as.factor.groups_mat.`)
         qtm(shan_sf_spatialcluster, "SP_CLUSTER")
-        
     })
-    
 }
 
 shinyApp (ui=ui, server=server)
