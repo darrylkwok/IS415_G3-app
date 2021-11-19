@@ -1,10 +1,32 @@
 library(shiny)
 library(shiny.router)
+library(dplyr)
+library(cluster)
+library(factoextra)
+library(leaflet)
+library(shinythemes)
+library(sf)
+library(tmap)
+library(tidyverse)
+library(maptools)
+library(spatstat)
+library(raster)
+library(corrplot)
+library(tidyr)
+library(ggplot2)
+library(rgeos)
+library(rgdal)
+library(sp)
+library(stringr)
+library(ClustGeo)
+library(spdep)
+library(reshape2)
+library(geodist)
 
-libs <- c( "dplyr", "cluster", "factoextra", "leaflet", "shinythemes",
-           "sf","tmap","tidyverse","maptools","spatstat","raster","corrplot", "tidyr",
-          "ggplot2","rgeos","rgdal","sp", "stringr", "ClustGeo","spdep","reshape2", "geodist")
-lapply(libs, library, character.only = TRUE)
+#libs <- c( "dplyr", "cluster", "factoextra", "leaflet", "shinythemes",
+ #          "sf","tmap","tidyverse","maptools","spatstat","raster","corrplot", "tidyr",
+  #        "ggplot2","rgeos","rgdal","sp", "stringr", "ClustGeo","spdep","reshape2", "geodist")
+#lapply(libs, library, character.only = TRUE)
 
 ###########################################################################################
 #                            DATA IMPORT + PRE-PROCESSING
