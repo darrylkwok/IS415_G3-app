@@ -2,7 +2,7 @@ library(shiny)
 library(shiny.router)
 
 libs <- c( "dplyr", "cluster", "factoextra", "leaflet", "shinythemes",
-           "sf","tmap","tidyverse","maptools","spatstat","raster","corrplot",
+           "sf","tmap","tidyverse","maptools","spatstat","raster","corrplot", "tidyr",
           "ggplot2","rgeos","rgdal","sp", "stringr", "ClustGeo","spdep","reshape2", "geodist")
 lapply(libs, library, character.only = TRUE)
 
@@ -17,26 +17,26 @@ lapply(libs, library, character.only = TRUE)
 shan_sf <- st_read(dsn = "data/geospatial", 
                    layer = "myanmar_township_boundaries") %>%
     filter(ST %in% c("Shan (East)", "Shan (North)", "Shan (South)"))
-london_sf <- st_read(dsn = "data/geospatial/statistical-gis-boundaries-london", 
-                     layer = "London_Borough_Excluding_MHW")
+# london_sf <- st_read(dsn = "data/geospatial/statistical-gis-boundaries-london", 
+#                      layer = "London_Borough_Excluding_MHW")
 
-# geospatial pre-processing function needs to:
+# geospatial pre-processing function will:
 # - check for invalid geometries
 # - check for missing values
 # - verify + transform CRS
 
-geospatial_processing <- function(input_sf, expected_crs){
+geospatial_processing <- function(input_sf, important_feature, expected_crs){
     return_sf <- input_sf
     if(length(which(st_is_valid(input_sf) == FALSE)) == 1){
         return_sf <- st_make_valid(return_sf)
     }
-    return_sf <- na.omit(return_sf) %>%
+    return_sf %>% drop_na(important_feature) %>%
         st_transform(return_sf, crs=expected_crs)
     return(return_sf)
 }
 
-shan_sf <- geospatial_processing(shan_sf,4326)
-london_sf <- geospatial_processing(london_sf,27700)
+shan_sf <- geospatial_processing(shan_sf, "TS_PCODE", 4326)
+# london_sf <- geospatial_processing(london_sf,27700)
 
 # import aspatial data without lng/lat
 # input: .csv with district names
@@ -44,8 +44,8 @@ london_sf <- geospatial_processing(london_sf,27700)
 
 # assumption that user's data upload is stored as input$filename
 # so to access, read_csv(input$filename$datapath)
-ict <- read_csv ("data/aspatial/Shan-ICT.csv")
-crime <- read_csv ("data/aspatial/crime-types.csv")
+ict <- read_csv ("data/aspatial/final-Shan-ICT.csv")
+# crime <- read_csv ("data/aspatial/crime-types.csv")
 
 # import aspatial data with lng/lat (transform to geospatial)
 # assumption that all Lng/Lat are ESPG 4326 i.e. WGS84, World Geodetic System 1984
@@ -79,26 +79,8 @@ aspatial_processing <- function(input_filepath, expected_crs){
     return(return_sf)
 }
 
-# need a tool for deriving new variables?
-ict_derived <- ict %>%
-    mutate(`RADIO_PR` = `Radio`/`Total households`*1000) %>%
-    mutate(`TV_PR` = `Television`/`Total households`*1000) %>%
-    mutate(`LLPHONE_PR` = `Land line phone`/`Total households`*1000) %>%
-    mutate(`MPHONE_PR` = `Mobile phone`/`Total households`*1000) %>%
-    mutate(`COMPUTER_PR` = `Computer`/`Total households`*1000) %>%
-    mutate(`INTERNET_PR` = `Internet at home`/`Total households`*1000) %>%
-    rename(`DT_PCODE` =`District Pcode`,`DT`=`District Name`,
-           `TS_PCODE`=`Township Pcode`, `TS`=`Township Name`,
-           `TT_HOUSEHOLDS`=`Total households`,
-           `RADIO`=`Radio`, `TV`=`Television`, 
-           `LLPHONE`=`Land line phone`, `MPHONE`=`Mobile phone`,
-           `COMPUTER`=`Computer`, `INTERNET`=`Internet at home`) 
-
-# needs to left_join with geospatial data... which is user input? 'join on...'
-# how to add that functionality though :-(
-# or we can necessitate that they joined column must be of same name then go through both to find
-
-shan_sf <- left_join(shan_sf, ict_derived, 
+# needs user input to left_join after data upload and both dfs are intialised (conditional panel?) 
+shan_sf <- left_join(shan_sf, ict, 
                       by=c("TS_PCODE"="TS_PCODE"))
 
 ###########################################################################################
@@ -216,46 +198,6 @@ eda_page <- div(
         )
     )
 )
-
-# eda_page <- div(
-#     titlePanel("EDA"),
-#     sidebarLayout(
-#         sidebarPanel(
-#             selectInput(inputId = "room_type",
-#                         label = "Which room type?",
-#                         choices = c("Private Room" = "Private room",
-#                                     "Entire Home/Apartment" = "Entire home/apt",
-#                                     "Shared Room" = "Shared room"),
-#                         selected = "Private room",
-#                         multiple = TRUE),
-#             sliderInput(inputId = "price", 
-#                         label = "Price", 
-#                         min = 0,
-#                         max = 13999, 
-#                         value = c(100,1000)),
-#             selectInput(inputId = "var_of_interest",
-#                         label = "Summary by?",
-#                         choices = c("Room Type" = "room_type",
-#                                     "Neighbourhood Group" = "neighbourhood_group"),
-#                         selected = "Room Type",
-#                         multiple = FALSE),
-#             checkboxInput(inputId = "showData",
-#                           label = "Show data table",
-#                           value = TRUE)
-#         ),
-#         mainPanel(
-#             tabsetPanel(
-#                 tabPanel("Map",
-#                          tmapOutput("mapPlot"),
-#                          DT::dataTableOutput(outputId = "aTable")
-#                 ),
-#                 tabPanel("Summary",
-#                          plotly::plotlyOutput("bar_plot")
-#                 )
-#             )
-#         )
-#     )
-# )
 
 hierarchical_clustering_page <- div(
     titlePanel("Hierarchical Clustering"),
@@ -585,47 +527,7 @@ server <- function(input, output, session){
             guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
                                          title.position = "top", title.hjust = 0.5))
     })
-    
-    
-    # eda_dataset = reactive({
-    #     listings_2019 %>%
-    #         filter(room_type == input$room_type) %>%
-    #         filter(price > input$price)
-    # })
-    # output$mapPlot <- renderTmap({
-    #     tm_shape(shp = eda_dataset(),
-    #              bbox = st_bbox(listings_2019))+
-    #         tm_bubbles(col = "room_type",
-    #                    size = "price",
-    #                    border.col = "black",
-    #                    border.lwd = 0.5)
-    # })  
-    # output$bar_plot <- plotly::renderPlotly({
-    #     data <- listings_2019
-    #     if(input$var_of_interest == "room_type"){
-    #         plot_bar <- ggplot(data, 
-    #                            aes(room_type, fill=room_type))+
-    #                             geom_bar()+
-    #                             theme_minimal()
-    #     } else {
-    #         plot_bar <- ggplot(data, 
-    #                            aes(neighbourhood_group, fill=neighbourhood_group))+
-    #                             geom_bar()+
-    #                             theme_minimal()
-    #     } 
-    #     return(plot_bar)
-    # })
-    # 
-    # 
-    # output$aTable <- DT::renderDataTable({
-    #     if(input$showData){
-    #         DT::datatable(data = eda_dataset() %>%
-    #                           select(1:4),
-    #                       options= list(pageLength = 10),
-    #                       rownames = FALSE)
-    #     }
-    # })   
-    
+
     ## Hierarchical Clustering
     basic_dataset <- shan_ict
     sec_dataset <- shan_sf
@@ -665,9 +567,7 @@ server <- function(input, output, session){
     
     ## ClustGeo Clustering
     # https://cran.r-project.org/web/packages/ClustGeo/vignettes/intro_ClustGeo.html
-    # alternative reference: https://github.com/erikaaldisa/IS415_T14_Project/blob/master/app/app.R
-    # alternative reference: https://erika-aldisa-gunawan.shinyapps.io/IS415_T14_EastKalimantan_New_JTown/
-    
+ 
     # Clustgeo alpha plot
     output$clustgeo_sugg_alpha <- renderPlot({
         D0 <- dist(shan_dat[,input$clustgeo_var])
