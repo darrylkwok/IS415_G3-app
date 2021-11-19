@@ -108,6 +108,16 @@ homepage <- div(
 basic_dataset <- shan_ict
 sec_dataset <- shan_sf
 
+if(exists("new_ict")){
+    basic_dataset<- new_ict
+}
+
+basic_dataset <- reactive(new_ict)
+
+if(exists("shpdf")){
+    sec_dataset <- left_join(shpdf, df, by=c("TS_PCODE"="TS_PCODE"))
+}
+
 # basic_dataset <- reactive({
 #     if(exists(df)){
 #         basic_dataset <- df
@@ -439,6 +449,12 @@ server <- function(input, output, session){
                        header = input$header,
                        sep = input$sep,
                        quote = input$quote)
+        cluster_vars <- df %>%
+            st_set_geometry(NULL) %>% 
+            #stopgap
+            dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
+        row.names(cluster_vars) <- cluster_vars$"TS.x"
+        new_ict <<- dplyr::select(cluster_vars, c(2:7))
         
         if(input$disp == "head") {
             return(head(df))
