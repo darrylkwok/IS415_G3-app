@@ -6,7 +6,6 @@ libs <- c( "dplyr", "cluster", "factoextra", "leaflet", "shinythemes",
           "ggplot2","rgeos","rgdal","sp", "stringr", "ClustGeo","spdep","reshape2", "geodist")
 lapply(libs, library, character.only = TRUE)
 
-
 ###########################################################################################
 #                            DATA IMPORT + PRE-PROCESSING
 ###########################################################################################
@@ -15,10 +14,6 @@ lapply(libs, library, character.only = TRUE)
 # input: shapefile
 # output: simple features object
 
-sg_sf <- st_read(dsn = "data/geospatial", 
-                 layer="CostalOutline")
-mpsz_sf <- st_read(dsn = "data/geospatial", 
-                   layer = "MP14_SUBZONE_WEB_PL")
 shan_sf <- st_read(dsn = "data/geospatial", 
                    layer = "myanmar_township_boundaries") %>%
     filter(ST %in% c("Shan (East)", "Shan (North)", "Shan (South)"))
@@ -30,8 +25,6 @@ london_sf <- st_read(dsn = "data/geospatial/statistical-gis-boundaries-london",
 # - check for missing values
 # - verify + transform CRS
 
-# assumption that user's data upload is stored as input$filename
-
 geospatial_processing <- function(input_sf, expected_crs){
     return_sf <- input_sf
     if(length(which(st_is_valid(input_sf) == FALSE)) == 1){
@@ -42,11 +35,8 @@ geospatial_processing <- function(input_sf, expected_crs){
     return(return_sf)
 }
 
-sg_sf <- geospatial_processing(sg_sf,3414)
-mpsz_sf <- geospatial_processing(mpsz_sf,3414)
+shan_sf <- geospatial_processing(shan_sf,4326)
 london_sf <- geospatial_processing(london_sf,27700)
-
-###########################################################################################
 
 # import aspatial data without lng/lat
 # input: .csv with district names
@@ -56,28 +46,6 @@ london_sf <- geospatial_processing(london_sf,27700)
 # so to access, read_csv(input$filename$datapath)
 ict <- read_csv ("data/aspatial/Shan-ICT.csv")
 crime <- read_csv ("data/aspatial/crime-types.csv")
-
-# for ClustGeo
-# from https://cran.r-project.org/web/packages/ClustGeo/vignettes/intro_ClustGeo.html
-# more info here https://rdrr.io/cran/ClustGeo/man/estuary.html
-# library(ClustGeo)
-data(estuary)
-
-# a data frame with the description of the n=303 municipalities on p=4 socio-demographic variables
-dat <- estuary$dat 
-sel <- c(
-    "Employment Rate" = "employ.rate.city",
-    "Graduate Rate" = "graduate.rate",
-    "Housing Apartment" = "housing.appart", 
-    "Agriculatural Land" = "agri.land")
-
-# a matrix with the geographical distances between the town hall of the n=303 municipalities
-D.geo <- estuary$D.geo
-
-# an object of class SpatialPolygonsDataFrame with the map of the gironde estuary.
-map <- estuary$map
-
-###########################################################################################
 
 # import aspatial data with lng/lat (transform to geospatial)
 # assumption that all Lng/Lat are ESPG 4326 i.e. WGS84, World Geodetic System 1984
@@ -111,10 +79,6 @@ aspatial_processing <- function(input_filepath, expected_crs){
     return(return_sf)
 }
 
-listings_2019 <- aspatial_processing("data/aspatial/listings_30062019.csv", 3414)
-listings_2021 <- aspatial_processing("data/aspatial/listings_29062021.csv", 3414)
-childcare_sf <- aspatial_processing("data/aspatial/childcare.rds", 3414)
-
 # need a tool for deriving new variables?
 ict_derived <- ict %>%
     mutate(`RADIO_PR` = `Radio`/`Total households`*1000) %>%
@@ -130,7 +94,6 @@ ict_derived <- ict %>%
            `LLPHONE`=`Land line phone`, `MPHONE`=`Mobile phone`,
            `COMPUTER`=`Computer`, `INTERNET`=`Internet at home`) 
 
-
 # needs to left_join with geospatial data... which is user input? 'join on...'
 # how to add that functionality though :-(
 # or we can necessitate that they joined column must be of same name then go through both to find
@@ -138,7 +101,9 @@ ict_derived <- ict %>%
 shan_sf <- left_join(shan_sf, ict_derived, 
                       by=c("TS_PCODE"="TS_PCODE"))
 
-# CLUSTERING SECTION
+###########################################################################################
+#                            CLUSTERING
+###########################################################################################
 
 ## SELECT CLUSTER VARIABLES
 
@@ -170,11 +135,8 @@ shan_sel <- c(
      "Internet Penetration Rate" = "INTERNET_PR")
 
 ###########################################################################################
-
 # PAGES
-
 ###########################################################################################
-
 
 ## Define the pages
 ### To create a new page, you have to define a new variable and set up the route in the router 
