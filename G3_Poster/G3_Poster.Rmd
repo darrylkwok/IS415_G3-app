@@ -1,0 +1,33 @@
+---
+title: Analytical Regionalisation and Geographical Segmentation
+author:
+  - name: Darryl Kwok
+    affil: 1
+  - name: Megan Sim
+    affil: 2
+  - name: Xu Pengtai
+    affil: 3
+affiliation:
+  - num: 1
+    address: Singapore Management University
+  - num: 2
+    address: Singapore Management University
+  - num: 3
+    address: National University of Singapore
+column_numbers: 0
+logoright_name: https&#58;//raw.githubusercontent.com/brentthorne/posterdown/master/images/betterhexlogo.png
+logoleft_name: https&#58;//raw.githubusercontent.com/brentthorne/posterdown/master/images/betterhexlogo.png
+output: 
+  posterdown::posterdown_html:
+    self_contained: false
+bibliography: packages.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, out.width = "4300px"}
+knitr::include_graphics("images/IS415_Poster.png")
+```
+
