@@ -577,7 +577,7 @@ server <- function(input, output, session){
     ## EDA 
     output$distPlot <- plotly::renderPlotly({
         col = input$column_select
-        ggplot(data=basic_dataset, 
+        ggplot(data=basic_dataset_reactive(), 
                aes_string(x=col)) +   #selected column
             geom_histogram(bins=20, 
                            color="black", 
@@ -585,7 +585,7 @@ server <- function(input, output, session){
     })
     
     output$corrPlot <- plotly::renderPlotly({
-        correlation <- round(cor(basic_dataset), 2)
+        correlation <- round(cor(basic_dataset_reactive()), 2)
         # Get upper triangle of the correlation matrix
         get_upper_tri <- function(cormat){
             cormat[lower.tri(cormat)]<- NA
