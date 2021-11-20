@@ -456,6 +456,48 @@ server <- function(input, output, session){
     ## DO NOT REMOVE THIS
     router$server(input, output, session)
     
+    # ## datasets - use preloaded data if no data uploaded
+    # basic_dataset <- reactive({
+    #     inFile <- input$filecsv
+    #     shpdf <- input$filemap
+    #     
+    #     if(!is.null(inFile)){
+    #         df <- read.csv(input$filecsv$datapath,
+    #                        header = input$header,
+    #                        sep = input$sep,
+    #                        quote = input$quote)
+    #         if(!.isnull(shpdf)){
+    #             sec_dataset <- left_join(shpdf, df, by=c("TS_PCODE"="TS_PCODE"))
+    #             cluster_vars <- sec_dataset %>%
+    #                 st_set_geometry(NULL) %>%
+    #                 dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
+    #             row.names(cluster_vars) <- cluster_vars$"TS.x"
+    #             new_ict <- dplyr::select(cluster_vars, c(2:7))
+    #             
+    #             basic_dataset <- new_ict
+    #         }
+    #     } else {
+    #         basic_dataset <- shan_sf
+    #     }
+    # })
+    # 
+    # sec_dataset <- reactive({
+    #     inFile <- input$filecsv
+    #     shpdf <- input$filemap
+    #     
+    #     if(!is.null(inFile)){
+    #         df <- read.csv(input$filecsv$datapath,
+    #                        header = input$header,
+    #                        sep = input$sep,
+    #                        quote = input$quote)
+    #         if(!.isnull(shpdf)){
+    #             sec_dataset <- left_join(shpdf, df, by=c("TS_PCODE"="TS_PCODE"))
+    #         }
+    #     }else{
+    #         sec_dataset <- shan_ict
+    #     }
+    # })
+    
     output$choose <- reactive({
         if((is.null(input$filecsv))&(is.null(input$filemap)))
         {
