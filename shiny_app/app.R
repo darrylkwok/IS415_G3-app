@@ -196,7 +196,7 @@ upload_page <- div(
         ),
         mainPanel(
             tableOutput("csvcontents"),
-            #tableOutput(outputId = "shpcontents")
+            tableOutput(outputId = "shpcontents")
         )
     )
     
@@ -469,11 +469,17 @@ server <- function(input, output, session){
     
     ## CSV DATA UPLOAD
     output$csvcontents <- renderTable({
-        req(input$filecsv)
-        df <- read.csv(input$filecsv$datapath,
-                       header = input$header,
-                       sep = input$sep,
-                       quote = input$quote)
+          if(is.null(input$filecsv$datapath)){
+            df <- ict
+          } else {
+            req(input$filecsv)
+            
+            df <- read.csv(input$filecsv$datapath,
+                           header = input$header,
+                           sep = input$sep,
+                           quote = input$quote)
+          }
+        
         
         if(input$disp == "head") {
             return(head(df))
@@ -485,32 +491,35 @@ server <- function(input, output, session){
     
     ## SHAPEFILE DATA UPLOAD
     output$shpcontents <- renderTable({
-        req(input$filemap)
-        shpdf <- input$filemap
-        
-        # Name of the temporary directory where files are uploaded
-        tempdirname <- dirname(shpdf$datapath[1])
-        
-        # Rename files
-        for (i in 1:nrow(shpdf)) {
+        if(is.null(input$filemap$datapath)){
+          map <- as_Spatial(shan_sf)
+        } else {
+          req(input$filemap)
+          shpdf <- input$filemap
+          
+          # Name of the temporary directory where files are uploaded
+          tempdirname <- dirname(shpdf$datapath[1])
+          
+          # Rename files
+          for (i in 1:nrow(shpdf)) {
             file.rename(
-                shpdf$datapath[i],
-                paste0(tempdirname, "/", shpdf$name[i])
+              shpdf$datapath[i],
+              paste0(tempdirname, "/", shpdf$name[i])
             )
+          }
+          # Now we read the shapefile with readOGR() of rgdal package
+          # passing the name of the file with .shp extension.
+          
+          # We use the function grep() to search the pattern "*.shp$"
+          # within each element of the character vector shpdf$name.
+          # grep(pattern="*.shp$", shpdf$name)
+          # ($ at the end denote files that finish with .shp,
+          # not only that contain .shp)
+          map <- readOGR(paste(tempdirname,
+                               shpdf$name[grep(pattern = "*.shp$", shpdf$name)],
+                               sep = "/"
+          ))
         }
-        
-        # Now we read the shapefile with readOGR() of rgdal package
-        # passing the name of the file with .shp extension.
-        
-        # We use the function grep() to search the pattern "*.shp$"
-        # within each element of the character vector shpdf$name.
-        # grep(pattern="*.shp$", shpdf$name)
-        # ($ at the end denote files that finish with .shp,
-        # not only that contain .shp)
-        map <- readOGR(paste(tempdirname,
-                             shpdf$name[grep(pattern = "*.shp$", shpdf$name)],
-                             sep = "/"
-        ))
         map
     })
     
