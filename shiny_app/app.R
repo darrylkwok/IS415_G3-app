@@ -652,10 +652,12 @@ server <- function(input, output, session){
  
     # Clustgeo alpha plot
     output$clustgeo_sugg_alpha <- renderPlot({
+      
+      basic_dataset <- basic_dataset_reactive()
         
         D0 <- dist(basic_dataset[,input$clustgeo_var])
         
-        shan_map <- as_Spatial(sec_dataset)
+        shan_map <- as_Spatial(sec_dataset_reactive())
         coords <- coordinates(shan_map)
         row.names(coords) <- shan_map$TS.x
         colnames(coords) <- c("lon", "lat")
@@ -671,6 +673,9 @@ server <- function(input, output, session){
     
     # ClustGeo clustering map
     output$clustgeo_cluster_map <- renderPlot({
+      
+      basic_dataset <- basic_dataset_reactive()
+      sec_dataset_reactive()
         
         # the socio-economic distances
         D0 <- dist(basic_dataset[,input$clustgeo_var])
