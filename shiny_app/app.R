@@ -176,10 +176,15 @@ preprocessing_page <- div(
                   choices = colnames(df),
                   selected = colnames(df)[3],
                   multiple = FALSE),
+      selectInput(inputId = "townnamevar", 
+                  label = "Select the geographically distinguishing feature (e.g. town name)",
+                  choices = colnames(df),
+                  selected = colnames(df)[4],
+                  multiple = FALSE),
       selectInput(inputId = "clustervar", 
                   label = "Which clustering values are you using?",
                   choices = colnames(df),
-                  selected = colnames(df)[3],
+                  selected = colnames(df)[12:18],
                   multiple = TRUE),
     ),
     mainPanel(
@@ -510,7 +515,9 @@ server <- function(input, output, session){
     })
     
     ## Preprocessing
-    joined_sf <- reactive({
+    
+    # the sec_dataset
+    sec_dataset_reactive <- reactive({
       req(input$filecsv)
       req(input$filemap)
       inFile <- input$filecsv
@@ -544,9 +551,11 @@ server <- function(input, output, session){
                              by=c(input$joinvar))
         joined_sf <- geospatial_processing(joined_sf, input$joinvar, 4326)
       }
+      return(joined_sf)
     })
     
-    new_ict <- reactive({
+    # the basic_dataset
+    basic_dataset_reactive <- reactive({
       req(input$filecsv)
       req(input$filemap)
       inFile <- input$filecsv
@@ -555,19 +564,18 @@ server <- function(input, output, session){
       if((is.null(inFile))&(is.null(inMap))){
         new_ict <- shan_ict
       } else {
-        sec_dataset <- joined_sf()
+        sec_dataset <- sec_dataset_reactive()
         cluster_vars <- sec_dataset %>%
           st_set_geometry(NULL) %>%
-          dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
-        row.names(cluster_vars) <- cluster_vars$"TS.x"
+          dplyr::select(input$townnamevar, input$clustervar)
+        row.names(cluster_vars) <- cluster_vars$input$townnamevar
         new_ict <- dplyr::select(cluster_vars, c(2:7))
-        new_ict <- new_ict
       }
+      return(new_ict)
     })
 
     ## EDA 
     output$distPlot <- plotly::renderPlotly({
-
         col = input$column_select
         ggplot(data=basic_dataset, 
                aes_string(x=col)) +   #selected column
