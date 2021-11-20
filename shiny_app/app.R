@@ -518,18 +518,19 @@ server <- function(input, output, session){
     
     # the sec_dataset
     sec_dataset_reactive <- reactive({
-      req(input$filecsv)
-      req(input$filemap)
-      inFile <- input$filecsv
-      inMap <- input$filemap
       
-      if((is.null(inFile))&(is.null(inMap))){
+      #inFile <- input$filecsv
+      #inMap <- input$filemap
+      
+      if((is.null(input$filecsv$datapath)) | (is.null(input$filemap$datapath))){
         df <- ict
         shpdf <- shan_sf
         joined_sf <- left_join(shpdf, df, 
                              by=c(input$joinvar))
         joined_sf <- geospatial_processing(joined_sf, input$joinvar, 4326)
       } else {
+        req(input$filecsv)
+        req(input$filemap)
         df <- read.csv(input$filecsv$datapath,
                        header = input$header,
                        sep = input$sep,
@@ -556,12 +557,11 @@ server <- function(input, output, session){
     
     # the basic_dataset
     basic_dataset_reactive <- reactive({
-      req(input$filecsv)
-      req(input$filemap)
-      inFile <- input$filecsv
-      inMap <- input$filemap
+      
+      #inFile <- input$filecsv
+      #inMap <- input$filemap
 
-      if((is.null(inFile))&(is.null(inMap))){
+      if((is.null(input$filecsv$datapath)) | (is.null(input$filemap$datapath))){
         new_ict <- shan_ict
       } else {
         sec_dataset <- sec_dataset_reactive()
@@ -621,7 +621,7 @@ server <- function(input, output, session){
     ## Hierarchical Clustering
     output$param_tune <- renderPlot({
         set.seed(12345)
-        gap_stat <- clusGap(basic_dataset, 
+        gap_stat <- clusGap(basic_dataset_reactive(), 
                             FUN = hcut, 
                             nstart = 25, 
                             K.max = input$max_clust_num,
@@ -630,7 +630,7 @@ server <- function(input, output, session){
     })
     
     output$hier_dend <- renderPlot({
-        proxmat <- dist(basic_dataset, method = input$proximity_method)
+        proxmat <- dist(basic_dataset_reactive(), method = input$proximity_method)
         hclust_ward <- hclust(proxmat, method = input$clust_method)
         
         plot(hclust_ward, cex=0.6)
@@ -638,11 +638,11 @@ server <- function(input, output, session){
     })
     
     output$hier_clust <- renderTmap({
-        proxmat <- dist(basic_dataset, method = input$proximity_method)
+        proxmat <- dist(basic_dataset_reactive(), method = input$proximity_method)
         hclust_ward <- hclust(proxmat, method = input$clust_method)
         
         groups <- as.factor(cutree(hclust_ward, k=input$clust_num))
-        shan_sf_cluster <- cbind(sec_dataset, as.matrix(groups)) %>%
+        shan_sf_cluster <- cbind(sec_dataset_reactive(), as.matrix(groups)) %>%
             rename(`CLUSTER`=`as.matrix.groups.`)
         qtm(shan_sf_cluster, "CLUSTER")
     })
