@@ -66,7 +66,7 @@ shan_sf <- geospatial_processing(shan_sf, "TS_PCODE", 4326)
 
 # assumption that user's data upload is stored as input$filename
 # so to access, read_csv(input$filename$datapath)
-ict <- read_csv ("data/aspatial/final-Shan-ICT.csv")
+ict <- read_csv("data/aspatial/final-Shan-ICT.csv")
 # crime <- read_csv ("data/aspatial/crime-types.csv")
 
 # import aspatial data with lng/lat (transform to geospatial)
@@ -126,23 +126,46 @@ homepage <- div(
     p("This is a regionalisation & geographical segmentation tool for our IS415 Project."),
     textOutput("choose")
 )
+# 
+# if(!is.null(input$filecsv)){
+#     df <- read.csv(input$filecsv$datapath,
+#                    header = input$header,
+#                    sep = input$sep,
+#                    quote = input$quote)
+#     
+#     shpdf <- input$filemap
+#     tempdirname <- dirname(shpdf$datapath[1])
+#     for (i in 1:nrow(shpdf)) {
+#       file.rename(
+#         shpdf$datapath[i],
+#         paste0(tempdirname, "/", shpdf$name[i])
+#       )
+#     }
+#     map <- readOGR(paste(tempdirname,
+#                          shpdf$name[grep(pattern = "*.shp$", shpdf$name)],
+#                          sep = "/"))
+#     shpdf <- st_as_sf(map)
+#     
+#     sec_dataset <- left_join(shpdf, df, by=c("TS_PCODE"="TS_PCODE"))
+#     
+#     cluster_vars <- sec_dataset %>%
+#         st_set_geometry(NULL) %>% 
+#         dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
+#     row.names(cluster_vars) <- cluster_vars$"TS.x"
+#     new_ict <- dplyr::select(cluster_vars, c(2:7))
+#     
+#     basic_dataset<- new_ict
+# } else{
+#     df <- ict
+#     shpdf <- shan_sf
+#     sec_dataset <- shan_sf
+#     basic_dataset <- shan_ict
+# }
 
-basic_dataset <- shan_ict
+df <- ict
+shpdf <- shan_sf
 sec_dataset <- shan_sf
-
-if(exists("shpdf")){
-    sec_dataset <- left_join(shpdf, df, by=c("TS_PCODE"="TS_PCODE"))
-    cluster_vars <- sec_dataset %>%
-        st_set_geometry(NULL) %>% 
-        dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
-    row.names(cluster_vars) <- cluster_vars$"TS.x"
-    new_ict <- dplyr::select(cluster_vars, c(2:7))
-    
-    basic_dataset<- new_ict
-} else{
-    sec_dataset <- shan_sf
-    basic_dataset <- shan_ict
-}
+basic_dataset <- shan_ict
 
 # basic_dataset <- reactive({
 #     if(exists("new_ict")){
@@ -172,7 +195,7 @@ upload_page <- div(
                                  "text/comma-separated-values,text/plain",
                                  ".csv")),
             fileInput(inputId = "filemap",
-                      label = "Upload map. Choose shapefile",
+                      label = "Choose shapefile - needs 5 files (CST, DBF, PRJ, SHP and SHX)",
                       multiple = TRUE,
                       accept = c('.shp','.dbf','.sbn','.sbx','.shx','.prj')),
             tags$hr(),
@@ -200,6 +223,22 @@ upload_page <- div(
         )
     )
     
+)
+
+preprocessing_page <- div(
+  titlePanel("Preprocess your data"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput(inputId = "joinvar", 
+                  label = "Join your geospatial and asptial data on... (assumes same feature name)",
+                  choices = colnames(df),
+                  selected = colnames(df)[3],
+                  multiple = FALSE),
+    ),
+    mainPanel(
+      tableOutput("joinedcontents")
+    )
+  )
 )
 
 eda_page <- div(
@@ -427,12 +466,12 @@ spatially_constrained_clustering_page <- div(
 router <- make_router(
     route("/", homepage),
     route("upload", upload_page),
+    route("preprocessing", preprocessing_page),
     route("eda", eda_page),
     route("hierarchical_clustering", hierarchical_clustering_page),
     route("clustgeo_clustering", clustgeo_clustering_page),
     route("spatially_constrained_clustering", spatially_constrained_clustering_page)
 )
-
 
 ui <- fluidPage(
     theme = shinytheme("flatly"),
@@ -444,6 +483,7 @@ ui <- fluidPage(
         
         tabPanel(tags$a(href = route_link("/"), "About Project")),
         tabPanel(tags$a(href = route_link("/upload"), "Data Upload")),
+        tabPanel(tags$a(href = route_link("/preprocessing"), "Data Preprocessing")),
         tabPanel(tags$a(href = route_link("/eda"), "Explanatory Data Analysis")),
         tabPanel(tags$a(href = route_link("/hierarchical_clustering"), "Hierarchical Clustering")),
         tabPanel(tags$a(href = route_link("/spatially_constrained_clustering"), "Spatially Constrained Clustering")),
@@ -460,7 +500,7 @@ server <- function(input, output, session){
     # basic_dataset <- reactive({
     #     inFile <- input$filecsv
     #     shpdf <- input$filemap
-    #     
+    # 
     #     if(!is.null(inFile)){
     #         df <- read.csv(input$filecsv$datapath,
     #                        header = input$header,
@@ -473,7 +513,7 @@ server <- function(input, output, session){
     #                 dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
     #             row.names(cluster_vars) <- cluster_vars$"TS.x"
     #             new_ict <- dplyr::select(cluster_vars, c(2:7))
-    #             
+    # 
     #             basic_dataset <- new_ict
     #         }
     #     } else {
@@ -484,7 +524,7 @@ server <- function(input, output, session){
     # sec_dataset <- reactive({
     #     inFile <- input$filecsv
     #     shpdf <- input$filemap
-    #     
+    # 
     #     if(!is.null(inFile)){
     #         df <- read.csv(input$filecsv$datapath,
     #                        header = input$header,
@@ -497,7 +537,7 @@ server <- function(input, output, session){
     #         sec_dataset <- shan_ict
     #     }
     # })
-    
+
     output$choose <- reactive({
         if((is.null(input$filecsv))&(is.null(input$filemap)))
         {
@@ -521,7 +561,6 @@ server <- function(input, output, session){
                            sep = input$sep,
                            quote = input$quote)
           }
-        
         
         if(input$disp == "head") {
             return(head(df))
@@ -565,6 +604,40 @@ server <- function(input, output, session){
         map
     })
     
+    ## Preprocessing
+    output$joinedcontents <- renderTable({
+      if(is.null(input$filecsv$datapath)){
+        df <- ict
+        shpdf <- shan_sf
+        shan_sf <- left_join(shpdf, df, 
+                             by=c(input$joinvar))
+        return(shan_sf)
+      } else {
+        req(input$filecsv)
+        req(input$filemap)
+        df <- read.csv(input$filecsv$datapath,
+                       header = input$header,
+                       sep = input$sep,
+                       quote = input$quote)
+        shpdf <- input$filemap
+        tempdirname <- dirname(shpdf$datapath[1])
+        
+        for (i in 1:nrow(shpdf)) {
+          file.rename(
+            shpdf$datapath[i],
+            paste0(tempdirname, "/", shpdf$name[i])
+          )
+        }
+        map <- readOGR(paste(tempdirname,
+                             shpdf$name[grep(pattern = "*.shp$", shpdf$name)],
+                             sep = "/"))
+        shpdf <- st_as_sf(map)
+        shan_sf <- left_join(shpdf, df, 
+                             by=c(input$joinvar))
+        return(shan_sf)
+      }
+    })
+    
     ## EDA 
     output$distPlot <- plotly::renderPlotly({
 
@@ -575,6 +648,7 @@ server <- function(input, output, session){
                            color="black", 
                            fill="light blue")
     })
+    
     output$corrPlot <- plotly::renderPlotly({
         correlation <- round(cor(basic_dataset), 2)
         # Get upper triangle of the correlation matrix
@@ -621,27 +695,20 @@ server <- function(input, output, session){
     })
     
     output$hier_dend <- renderPlot({
-        
         proxmat <- dist(basic_dataset, method = input$proximity_method)
-        
         hclust_ward <- hclust(proxmat, method = input$clust_method)
         
         plot(hclust_ward, cex=0.6)
         rect.hclust(hclust_ward, k=input$clust_num, border=2:5)
-        
     })
     
     output$hier_clust <- renderTmap({
-        
         proxmat <- dist(basic_dataset, method = input$proximity_method)
-        
         hclust_ward <- hclust(proxmat, method = input$clust_method)
         
         groups <- as.factor(cutree(hclust_ward, k=input$clust_num))
-        
         shan_sf_cluster <- cbind(sec_dataset, as.matrix(groups)) %>%
             rename(`CLUSTER`=`as.matrix.groups.`)
-        
         qtm(shan_sf_cluster, "CLUSTER")
     })
     
