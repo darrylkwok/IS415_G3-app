@@ -546,24 +546,24 @@ server <- function(input, output, session){
       }
     })
     
-    # basic_dataset <- reactive({
-    #   req(input$filecsv)
-    #   req(input$filemap)
-    #   inFile <- input$filecsv
-    #   inMap <- input$filemap
-    #   
-    #   if((is.null(inFile))&(is.null(inMap))){
-    #     basic_dataset <- shan_ict
-    #   } else {
-    #     sec_dataset <- sec_dataset()
-    #     cluster_vars <- sec_dataset %>%
-    #       st_set_geometry(NULL) %>%
-    #       dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
-    #     row.names(cluster_vars) <- cluster_vars$"TS.x"
-    #     new_ict <- dplyr::select(cluster_vars, c(2:7))
-    #     basic_dataset <- new_ict
-    #   }
-    # })
+    new_ict <- reactive({
+      req(input$filecsv)
+      req(input$filemap)
+      inFile <- input$filecsv
+      inMap <- input$filemap
+
+      if((is.null(inFile))&(is.null(inMap))){
+        new_ict <- shan_ict
+      } else {
+        sec_dataset <- joined_sf()
+        cluster_vars <- sec_dataset %>%
+          st_set_geometry(NULL) %>%
+          dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
+        row.names(cluster_vars) <- cluster_vars$"TS.x"
+        new_ict <- dplyr::select(cluster_vars, c(2:7))
+        new_ict <- new_ict
+      }
+    })
 
     ## EDA 
     output$distPlot <- plotly::renderPlotly({
