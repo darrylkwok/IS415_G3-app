@@ -236,7 +236,7 @@ preprocessing_page <- div(
                   multiple = FALSE),
     ),
     mainPanel(
-      tableOutput("joinedcontents")
+      "Data preprocessing if you've uploaded your data."
     )
   )
 )
@@ -605,16 +605,18 @@ server <- function(input, output, session){
     })
     
     ## Preprocessing
-    output$joinedcontents <- renderTable({
-      if(is.null(input$filecsv$datapath)){
+    shan_sf <- reactive({
+      req(input$filecsv)
+      req(input$filemap)
+      inFile <- input$filecsv
+      inMap <- input$filemap
+      
+      if((is.null(inFile))&(is.null(inMap))){
         df <- ict
         shpdf <- shan_sf
         shan_sf <- left_join(shpdf, df, 
                              by=c(input$joinvar))
-        return(shan_sf)
       } else {
-        req(input$filecsv)
-        req(input$filemap)
         df <- read.csv(input$filecsv$datapath,
                        header = input$header,
                        sep = input$sep,
@@ -634,7 +636,6 @@ server <- function(input, output, session){
         shpdf <- st_as_sf(map)
         shan_sf <- left_join(shpdf, df, 
                              by=c(input$joinvar))
-        return(shan_sf)
       }
     })
     
