@@ -702,15 +702,17 @@ server <- function(input, output, session){
 
     ## Spatially Constrained Clustering
     
-    shan_sp <- as_Spatial(sec_dataset)
-    shan.nb <- poly2nb(shan_sp) # neighbour list
-    lcosts <- nbcosts(shan.nb, basic_dataset) # cost
-    shan.w <- nb2listw(shan.nb, 
-                       lcosts, 
-                       style="B")
-    shan.mst <- mstree(shan.w)
-    
     output$mst_plot <- renderPlot({
+      basic_dataset <- basic_dataset_reactive()
+      sec_dataset <- sec_dataset_reactive()
+      
+      shan_sp <- as_Spatial(sec_dataset)
+      shan.nb <- poly2nb(shan_sp) # neighbour list
+      lcosts <- nbcosts(shan.nb, basic_dataset) # cost
+      shan.w <- nb2listw(shan.nb, 
+                         lcosts, 
+                         style="B")
+      shan.mst <- mstree(shan.w)
         
         clust6 <- skater(edges = shan.mst[,1:2], 
                                   data = basic_dataset, 
@@ -726,6 +728,17 @@ server <- function(input, output, session){
     })
     
     output$chloropleth <- renderTmap({
+      
+      basic_dataset <- basic_dataset_reactive()
+      sec_dataset <- sec_dataset_reactive()
+      
+      shan_sp <- as_Spatial(sec_dataset)
+      shan.nb <- poly2nb(shan_sp) # neighbour list
+      lcosts <- nbcosts(shan.nb, basic_dataset) # cost
+      shan.w <- nb2listw(shan.nb, 
+                         lcosts, 
+                         style="B")
+      shan.mst <- mstree(shan.w)
         
         clust6 <- skater(edges = shan.mst[,1:2], 
                          data = basic_dataset, 
