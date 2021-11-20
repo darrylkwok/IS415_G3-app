@@ -23,11 +23,6 @@ library(spdep)
 library(reshape2)
 library(geodist)
 
-#libs <- c( "dplyr", "cluster", "factoextra", "leaflet", "shinythemes",
- #          "sf","tmap","tidyverse","maptools","spatstat","raster","corrplot", "tidyr",
-  #        "ggplot2","rgeos","rgdal","sp", "stringr", "ClustGeo","spdep","reshape2", "geodist")
-#lapply(libs, library, character.only = TRUE)
-
 ###########################################################################################
 #                            DATA IMPORT + PRE-PROCESSING
 ###########################################################################################
@@ -102,7 +97,6 @@ aspatial_processing <- function(input_filepath, expected_crs){
     return(return_sf)
 }
 
-# needs user input to left_join after data upload and both dfs are intialised
 shan_sf <- left_join(shan_sf, ict, 
                       by=c("TS_PCODE"="TS_PCODE"))
 
@@ -126,63 +120,11 @@ homepage <- div(
     p("This is a regionalisation & geographical segmentation tool for our IS415 Project."),
     textOutput("choose")
 )
-# 
-# if(!is.null(input$filecsv)){
-#     df <- read.csv(input$filecsv$datapath,
-#                    header = input$header,
-#                    sep = input$sep,
-#                    quote = input$quote)
-#     
-#     shpdf <- input$filemap
-#     tempdirname <- dirname(shpdf$datapath[1])
-#     for (i in 1:nrow(shpdf)) {
-#       file.rename(
-#         shpdf$datapath[i],
-#         paste0(tempdirname, "/", shpdf$name[i])
-#       )
-#     }
-#     map <- readOGR(paste(tempdirname,
-#                          shpdf$name[grep(pattern = "*.shp$", shpdf$name)],
-#                          sep = "/"))
-#     shpdf <- st_as_sf(map)
-#     
-#     sec_dataset <- left_join(shpdf, df, by=c("TS_PCODE"="TS_PCODE"))
-#     
-#     cluster_vars <- sec_dataset %>%
-#         st_set_geometry(NULL) %>% 
-#         dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
-#     row.names(cluster_vars) <- cluster_vars$"TS.x"
-#     new_ict <- dplyr::select(cluster_vars, c(2:7))
-#     
-#     basic_dataset<- new_ict
-# } else{
-#     df <- ict
-#     shpdf <- shan_sf
-#     sec_dataset <- shan_sf
-#     basic_dataset <- shan_ict
-# }
 
 df <- ict
 shpdf <- shan_sf
 sec_dataset <- shan_sf
 basic_dataset <- shan_ict
-
-# basic_dataset <- reactive({
-#     if(exists("new_ict")){
-#         basic_dataset <- new_ict
-#     } else{
-#         basic_dataset <- shan_ict
-#     }
-# })
-# 
-# sec_dataset <- reactive({
-#     if(exists("shpdf")){
-#         sec_dataset <- left_join(shpdf, df, 
-#                                  by=c("TS_PCODE"="TS_PCODE"))
-#     } else{
-#         sec_dataset <- shan_sf
-#     }
-# })
 
 #reference: https://shiny.rstudio.com/articles/upload.html
 upload_page <- div(
@@ -234,9 +176,14 @@ preprocessing_page <- div(
                   choices = colnames(df),
                   selected = colnames(df)[3],
                   multiple = FALSE),
+      selectInput(inputId = "clustervar", 
+                  label = "Which clustering values are you using?",
+                  choices = colnames(df),
+                  selected = colnames(df)[3],
+                  multiple = TRUE),
     ),
     mainPanel(
-      "Data preprocessing if you've uploaded your data."
+      "Data preprocessing for uploaded data."
     )
   )
 )
@@ -495,48 +442,6 @@ ui <- fluidPage(
 server <- function(input, output, session){
     ## DO NOT REMOVE THIS
     router$server(input, output, session)
-    
-    # ## datasets - use preloaded data if no data uploaded
-    # basic_dataset <- reactive({
-    #     inFile <- input$filecsv
-    #     shpdf <- input$filemap
-    # 
-    #     if(!is.null(inFile)){
-    #         df <- read.csv(input$filecsv$datapath,
-    #                        header = input$header,
-    #                        sep = input$sep,
-    #                        quote = input$quote)
-    #         if(!.isnull(shpdf)){
-    #             sec_dataset <- left_join(shpdf, df, by=c("TS_PCODE"="TS_PCODE"))
-    #             cluster_vars <- sec_dataset %>%
-    #                 st_set_geometry(NULL) %>%
-    #                 dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
-    #             row.names(cluster_vars) <- cluster_vars$"TS.x"
-    #             new_ict <- dplyr::select(cluster_vars, c(2:7))
-    # 
-    #             basic_dataset <- new_ict
-    #         }
-    #     } else {
-    #         basic_dataset <- shan_sf
-    #     }
-    # })
-    # 
-    # sec_dataset <- reactive({
-    #     inFile <- input$filecsv
-    #     shpdf <- input$filemap
-    # 
-    #     if(!is.null(inFile)){
-    #         df <- read.csv(input$filecsv$datapath,
-    #                        header = input$header,
-    #                        sep = input$sep,
-    #                        quote = input$quote)
-    #         if(!.isnull(shpdf)){
-    #             sec_dataset <- left_join(shpdf, df, by=c("TS_PCODE"="TS_PCODE"))
-    #         }
-    #     }else{
-    #         sec_dataset <- shan_ict
-    #     }
-    # })
 
     output$choose <- reactive({
         if((is.null(input$filecsv))&(is.null(input$filemap)))
@@ -605,7 +510,7 @@ server <- function(input, output, session){
     })
     
     ## Preprocessing
-    shan_sf <- reactive({
+    joined_sf <- reactive({
       req(input$filecsv)
       req(input$filemap)
       inFile <- input$filecsv
@@ -614,8 +519,9 @@ server <- function(input, output, session){
       if((is.null(inFile))&(is.null(inMap))){
         df <- ict
         shpdf <- shan_sf
-        shan_sf <- left_join(shpdf, df, 
+        joined_sf <- left_join(shpdf, df, 
                              by=c(input$joinvar))
+        joined_sf <- geospatial_processing(joined_sf, input$joinvar, 4326)
       } else {
         df <- read.csv(input$filecsv$datapath,
                        header = input$header,
@@ -634,11 +540,31 @@ server <- function(input, output, session){
                              shpdf$name[grep(pattern = "*.shp$", shpdf$name)],
                              sep = "/"))
         shpdf <- st_as_sf(map)
-        shan_sf <- left_join(shpdf, df, 
+        joined_sf <- left_join(shpdf, df, 
                              by=c(input$joinvar))
+        joined_sf <- geospatial_processing(joined_sf, input$joinvar, 4326)
       }
     })
     
+    # basic_dataset <- reactive({
+    #   req(input$filecsv)
+    #   req(input$filemap)
+    #   inFile <- input$filecsv
+    #   inMap <- input$filemap
+    #   
+    #   if((is.null(inFile))&(is.null(inMap))){
+    #     basic_dataset <- shan_ict
+    #   } else {
+    #     sec_dataset <- sec_dataset()
+    #     cluster_vars <- sec_dataset %>%
+    #       st_set_geometry(NULL) %>%
+    #       dplyr::select("TS.x", "RADIO_PR", "TV_PR", "LLPHONE_PR", "MPHONE_PR", "COMPUTER_PR", "INTERNET_PR")
+    #     row.names(cluster_vars) <- cluster_vars$"TS.x"
+    #     new_ict <- dplyr::select(cluster_vars, c(2:7))
+    #     basic_dataset <- new_ict
+    #   }
+    # })
+
     ## EDA 
     output$distPlot <- plotly::renderPlotly({
 
